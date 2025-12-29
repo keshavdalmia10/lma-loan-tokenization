@@ -201,6 +201,41 @@ export const LoanTokenABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "addr", "type": "address" }],
+    "name": "isFrozen",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "addr", "type": "address" }],
+    "name": "getFrozenTokens",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "frozen",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "frozenTokens",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "anonymous": false,
     "inputs": [
       { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
@@ -280,4 +315,363 @@ export const LoanTokenFactoryABI = [
     "name": "LoanTokenCreated",
     "type": "event"
   }
+] as const;
+
+// ERC-3643 Identity Registry ABI
+export const IdentityRegistryABI = [
+  {
+    inputs: [
+      { name: "userAddress", type: "address" },
+      { name: "identity", type: "address" },
+      { name: "country", type: "uint16" }
+    ],
+    name: "registerIdentity",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "userAddress", type: "address" }],
+    name: "deleteIdentity",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "userAddress", type: "address" }],
+    name: "isVerified",
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "userAddress", type: "address" }],
+    name: "identity",
+    outputs: [{ type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "userAddress", type: "address" }],
+    name: "investorCountry",
+    outputs: [{ type: "uint16" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "userAddresses", type: "address[]" },
+      { name: "identities", type: "address[]" },
+      { name: "countries", type: "uint16[]" }
+    ],
+    name: "batchRegisterIdentity",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "userAddress", type: "address" },
+      { name: "country", type: "uint16" }
+    ],
+    name: "updateCountry",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "userAddress", type: "address" },
+      { name: "identity", type: "address" }
+    ],
+    name: "updateIdentity",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "investorAddress", type: "address" },
+      { indexed: true, name: "identity", type: "address" }
+    ],
+    name: "IdentityRegistered",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "investorAddress", type: "address" },
+      { indexed: true, name: "identity", type: "address" }
+    ],
+    name: "IdentityRemoved",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "investorAddress", type: "address" },
+      { indexed: true, name: "identity", type: "address" }
+    ],
+    name: "IdentityUpdated",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "investorAddress", type: "address" },
+      { indexed: false, name: "country", type: "uint16" }
+    ],
+    name: "CountryUpdated",
+    type: "event"
+  },
+] as const;
+
+// ERC-3643 Compliance Module ABI
+export const ComplianceABI = [
+  {
+    inputs: [{ name: "token", type: "address" }],
+    name: "bindToken",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "unbindToken",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" }
+    ],
+    name: "canTransfer",
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" }
+    ],
+    name: "transferred",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" }
+    ],
+    name: "created",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "amount", type: "uint256" }
+    ],
+    name: "destroyed",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "country", type: "uint16" },
+      { name: "blacklisted", type: "bool" }
+    ],
+    name: "setCountryRestriction",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "country", type: "uint16" }],
+    name: "isCountryBlacklisted",
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "investor", type: "address" },
+      { name: "endTime", type: "uint256" }
+    ],
+    name: "setTransferLockup",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "investor", type: "address" }],
+    name: "getLockupEnd",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "maxHolders", type: "uint256" }],
+    name: "setMaxHolders",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getMaxHolders",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, name: "country", type: "uint16" },
+      { indexed: false, name: "blacklisted", type: "bool" }
+    ],
+    name: "CountryRestrictionSet",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "investor", type: "address" },
+      { indexed: false, name: "endTime", type: "uint256" }
+    ],
+    name: "TransferLockupSet",
+    type: "event"
+  },
+] as const;
+
+// ERC-3643 Claim Topics Registry ABI
+export const ClaimTopicsRegistryABI = [
+  {
+    inputs: [{ name: "claimTopic", type: "uint256" }],
+    name: "addClaimTopic",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "claimTopic", type: "uint256" }],
+    name: "removeClaimTopic",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getClaimTopics",
+    outputs: [{ type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: true, name: "claimTopic", type: "uint256" }],
+    name: "ClaimTopicAdded",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: true, name: "claimTopic", type: "uint256" }],
+    name: "ClaimTopicRemoved",
+    type: "event"
+  },
+] as const;
+
+// ERC-3643 Trusted Issuers Registry ABI
+export const TrustedIssuersRegistryABI = [
+  {
+    inputs: [
+      { name: "trustedIssuer", type: "address" },
+      { name: "claimTopics", type: "uint256[]" }
+    ],
+    name: "addTrustedIssuer",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "trustedIssuer", type: "address" }],
+    name: "removeTrustedIssuer",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "trustedIssuer", type: "address" },
+      { name: "claimTopics", type: "uint256[]" }
+    ],
+    name: "updateIssuerClaimTopics",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "getTrustedIssuers",
+    outputs: [{ type: "address[]" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "issuer", type: "address" }],
+    name: "isTrustedIssuer",
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "issuer", type: "address" }],
+    name: "getTrustedIssuerClaimTopics",
+    outputs: [{ type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "issuer", type: "address" },
+      { name: "claimTopic", type: "uint256" }
+    ],
+    name: "hasClaimTopic",
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "trustedIssuer", type: "address" },
+      { indexed: false, name: "claimTopics", type: "uint256[]" }
+    ],
+    name: "TrustedIssuerAdded",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: true, name: "trustedIssuer", type: "address" }],
+    name: "TrustedIssuerRemoved",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "trustedIssuer", type: "address" },
+      { indexed: false, name: "claimTopics", type: "uint256[]" }
+    ],
+    name: "ClaimTopicsUpdated",
+    type: "event"
+  },
 ] as const;

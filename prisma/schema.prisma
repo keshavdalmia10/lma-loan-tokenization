@@ -1,0 +1,339 @@
+// Prisma schema for LMA Loan Tokenization
+// Mirrors TypeScript types in src/lib/types/loan.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ Core Loan Entity ============
+model Loan {
+  id        String   @id @default(cuid())
+  nelId     String   @unique
+  version   String   @default("1.0")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Loan Terms (embedded from LoanTerms interface)
+  borrowerName    String
+  facilityAmount  BigInt // Store in cents to avoid float issues
+  interestRateBps Int
+  interestType    InterestType
+  spread          Int?
+  referenceRate   String?
+  maturityDate    DateTime
+  currency        String       @default("USD")
+  facilityType    FacilityType
+  securityType    SecurityType
+  seniorityRank   SeniorityRank
+
+  // Relations
+  documents    Document[]
+  covenants    Covenant[]
+  lenders      LenderPosition[]
+  esgData      ESGData?
+  nf2Formulas  NF2Formula[]
+  tokenization Tokenization?
+  trades       Trade[]
+
+  @@index([borrowerName])
+  @@index([createdAt])
+}
+
+enum InterestType {
+  fixed
+  floating
+}
+
+enum FacilityType {
+  term_loan
+  revolver
+  delayed_draw
+  bridge
+}
+
+enum SecurityType {
+  secured
+  unsecured
+}
+
+enum SeniorityRank {
+  senior
+  subordinated
+  mezzanine
+}
+
+// ============ Document Model ============
+model Document {
+  id         String         @id @default(cuid())
+  loanId     String
+  loan       Loan           @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  filename   String
+  uploadedAt DateTime       @default(now())
+  status     DocumentStatus
+  hash       String?
+  fileUrl    String? // S3/Cloud storage URL for production
+
+  @@index([loanId])
+}
+
+enum DocumentStatus {
+  pending
+  processing
+  parsed
+  error
+}
+
+// ============ Covenant Model ============
+model Covenant {
+  id               String            @id @default(cuid())
+  loanId           String
+  loan             Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  type             CovenantType
+  name             String
+  description      String
+  threshold        Float?
+  testingFrequency TestingFrequency
+  currentValue     Float?
+  status           CovenantStatus
+
+  @@index([loanId])
+}
+
+enum CovenantType {
+  financial
+  affirmative
+  negative
+  reporting
+}
+
+enum TestingFrequency {
+  monthly
+  quarterly
+  annually
+}
+
+enum CovenantStatus {
+  compliant
+  warning
+  breach
+  pending
+}
+
+// ============ Lender Position Model ============
+model LenderPosition {
+  id             String  @id @default(cuid())
+  loanId         String
+  loan           Loan    @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  lenderName     String
+  commitment     BigInt // USD cents
+  fundedAmount   BigInt
+  unfundedAmount BigInt
+  percentage     Float
+  isLeadArranger Boolean @default(false)
+
+  @@index([loanId])
+}
+
+// ============ ESG Data Model ============
+model ESGData {
+  id                        String   @id @default(cuid())
+  loanId                    String   @unique
+  loan                      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  hasESGLinking             Boolean
+  sustainabilityCoordinator String?
+  marginAdjustment          Int? // BPS
+  kpis                      ESGKPI[]
+}
+
+model ESGKPI {
+  id        String    @id @default(cuid())
+  esgDataId String
+  esgData   ESGData   @relation(fields: [esgDataId], references: [id], onDelete: Cascade)
+  metric    String
+  target    Float
+  current   Float?
+  unit      String
+  status    KPIStatus
+
+  @@index([esgDataId])
+}
+
+enum KPIStatus {
+  on_track
+  at_risk
+  missed
+  pending
+}
+
+// ============ NF2 Formula Model ============
+model NF2Formula {
+  id          String      @id @default(cuid())
+  loanId      String
+  loan        Loan        @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  name        String
+  type        FormulaType
+  description String
+  formula     String
+  parameters  Json
+  isOnChain   Boolean     @default(false)
+
+  @@index([loanId])
+}
+
+enum FormulaType {
+  right
+  obligation
+  condition
+  trigger
+}
+
+// ============ Tokenization Model ============
+model Tokenization {
+  id               String             @id @default(cuid())
+  loanId           String             @unique
+  loan             Loan               @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  tokenAddress     String?
+  tokenSymbol      String
+  totalUnits       Int
+  unitValue        BigInt // USD cents per unit
+  partition        TokenPartition
+  status           TokenizationStatus
+  mintedAt         DateTime?
+  blockchain       String             @default("Hardhat")
+  chainId          Int                @default(31337)
+  identityRegistry String?
+  compliance       String?
+
+  @@index([tokenAddress])
+}
+
+enum TokenPartition {
+  PRIMARY
+  SECONDARY
+}
+
+enum TokenizationStatus {
+  pending
+  minted
+  trading
+  redeemed
+}
+
+// ============ Participant/Investor Model (ERC-3643) ============
+model Participant {
+  id                 String          @id @default(cuid())
+  name               String
+  type               ParticipantType
+  walletAddress      String?         @unique
+  kycStatus          KYCStatus
+  accreditedInvestor Boolean         @default(false)
+  jurisdiction       String
+  lockupEndDate      DateTime?
+  identityContract   String? // ONCHAINID address
+  claims             IdentityClaim[]
+  tradesAsSeller     Trade[]         @relation("seller")
+  tradesAsBuyer      Trade[]         @relation("buyer")
+  tokenBalances      TokenBalance[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([walletAddress])
+  @@index([name])
+}
+
+enum ParticipantType {
+  bank
+  fund
+  insurance
+  pension
+  corporate
+  sovereign
+}
+
+enum KYCStatus {
+  pending
+  approved
+  rejected
+  expired
+}
+
+// ============ Identity Claim Model (ERC-3643) ============
+model IdentityClaim {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  topic         Int // CLAIM_TOPICS enum value (1=KYC, 2=ACCREDITATION, etc.)
+  issuer        String // Trusted issuer address
+  isValid       Boolean
+  signature     String?
+  data          String?
+  uri           String?
+  expiresAt     DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([participantId])
+  @@index([topic])
+}
+
+// ============ Token Balance Model ============
+model TokenBalance {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  tokenAddress  String
+  balance       Int
+  frozenAmount  Int         @default(0)
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([participantId, tokenAddress])
+  @@index([tokenAddress])
+}
+
+// ============ Trade Model ============
+model Trade {
+  id             String      @id @default(cuid())
+  loanId         String
+  loan           Loan        @relation(fields: [loanId], references: [id])
+  tokenAddress   String
+  sellerId       String
+  seller         Participant @relation("seller", fields: [sellerId], references: [id])
+  buyerId        String
+  buyer          Participant @relation("buyer", fields: [buyerId], references: [id])
+  units          Int
+  pricePerUnit   BigInt // USD cents
+  totalValue     BigInt // USD cents
+  status         TradeStatus
+  validation     Json? // TransferValidation JSON
+  createdAt      DateTime    @default(now())
+  settledAt      DateTime?
+  txHash         String?
+  settlementTime Float? // seconds
+
+  @@index([loanId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([tokenAddress])
+}
+
+enum TradeStatus {
+  pending
+  validating
+  approved
+  executed
+  settled
+  rejected
+}
+
+// ============ Trusted Issuer Model (ERC-3643) ============
+model TrustedIssuer {
+  id          String   @id @default(cuid())
+  address     String   @unique
+  name        String
+  claimTopics Int[] // Array of CLAIM_TOPICS values
+  createdAt   DateTime @default(now())
+}

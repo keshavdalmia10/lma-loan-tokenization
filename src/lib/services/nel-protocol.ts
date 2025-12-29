@@ -1,28 +1,134 @@
-// Mock NEL Protocol service simulating Nammu21's API
-// In production, this would connect to the actual NEL Protocol GraphQL API
+// NEL Protocol service with Claude AI integration
+// Connects to Claude API for real document parsing with fallback to mock data
+// Integrates with NEL Protocol (Nammu21) GraphQL API for credit instrument management
 
 import { v4 as uuidv4 } from 'uuid';
-import type { 
-  DigitalCreditInstrument, 
-  LoanTerms, 
-  Covenant, 
+import type {
+  DigitalCreditInstrument,
+  LoanTerms,
+  Covenant,
   LenderPosition,
   NF2Formula,
   ESGData
 } from '../types/loan';
+import * as NELGraphQL from './nel-graphql';
 
-// Simulated document parsing using AI (would use OpenAI/Claude in production)
+// Parse document using Claude AI via API route
 export async function parseDocument(file: File): Promise<{
   terms: LoanTerms;
   covenants: Covenant[];
   lenders: LenderPosition[];
   esg?: ESGData;
   confidence: number;
+  source?: string;
 }> {
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  try {
+    // Extract text from PDF/document
+    const documentText = await extractTextFromFile(file);
+    console.log(`[NEL] Extracted ${documentText.length} characters from ${file.name}`);
+
+    // Call Claude API
+    const response = await fetch('/api/parse-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documentText,
+        fileName: file.name
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(`[NEL] Document parsed via ${result.source} with ${Math.round(result.confidence * 100)}% confidence`);
+
+    return {
+      terms: result.terms,
+      covenants: result.covenants || [],
+      lenders: result.lenders || [],
+      esg: result.esg,
+      confidence: result.confidence,
+      source: result.source
+    };
+
+  } catch (error) {
+    console.error('[NEL] Parse error, using fallback:', error);
+    // Fallback to mock data
+    return getMockParseData();
+  }
+}
+
+// Extract text from PDF/document file
+async function extractTextFromFile(file: File): Promise<string> {
+  // For PDFs, we need to extract text
+  // In browser environment, we'll read as text if possible
+  // or use a simple extraction for demo purposes
   
-  // Return mock parsed data (in production, this would call AI/LLM API)
+  const arrayBuffer = await file.arrayBuffer();
+  
+  // Try to extract text from PDF
+  if (file.type === 'application/pdf') {
+    // Simple PDF text extraction (looks for text strings in PDF)
+    const bytes = new Uint8Array(arrayBuffer);
+    const text = extractPdfTextSimple(bytes);
+    if (text.length > 100) {
+      return text;
+    }
+  }
+  
+  // For Word docs or if PDF extraction fails, try reading as text
+  try {
+    const text = await file.text();
+    if (text.length > 50) {
+      return text;
+    }
+  } catch {
+    // Ignore text extraction failure
+  }
+  
+  // Return a description of what we received
+  return `Loan document: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}. Unable to extract full text - using AI to analyze based on metadata.`;
+}
+
+// Simple PDF text extraction (extracts visible text strings)
+function extractPdfTextSimple(bytes: Uint8Array): string {
+  // Convert to string and look for text content
+  let text = '';
+  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const content = decoder.decode(bytes);
+  
+  // Extract text between parentheses (PDF text objects)
+  const textMatches = content.match(/\(([^)]+)\)/g);
+  if (textMatches) {
+    text = textMatches
+      .map(m => m.slice(1, -1))
+      .filter(t => t.length > 2 && /[a-zA-Z]/.test(t))
+      .join(' ');
+  }
+  
+  // Also look for text in streams (basic extraction)
+  const streamMatches = content.match(/BT[\s\S]*?ET/g);
+  if (streamMatches) {
+    for (const stream of streamMatches) {
+      const tjMatches = stream.match(/\[([^\]]+)\]TJ/g);
+      if (tjMatches) {
+        for (const tj of tjMatches) {
+          const parts = tj.match(/\(([^)]+)\)/g);
+          if (parts) {
+            text += ' ' + parts.map(p => p.slice(1, -1)).join('');
+          }
+        }
+      }
+    }
+  }
+  
+  return text.trim();
+}
+
+// Fallback mock data
+function getMockParseData() {
   const borrowerNames = [
     'Acme Industrial Holdings Ltd.',
     'Global Manufacturing Corp.',
@@ -35,12 +141,12 @@ export async function parseDocument(file: File): Promise<{
   
   const terms: LoanTerms = {
     borrowerName: borrowerNames[Math.floor(Math.random() * borrowerNames.length)],
-    facilityAmount: Math.floor(Math.random() * 400 + 100) * 1_000_000, // $100M - $500M
-    interestRateBps: Math.floor(Math.random() * 300 + 200), // 2% - 5%
+    facilityAmount: Math.floor(Math.random() * 400 + 100) * 1_000_000,
+    interestRateBps: Math.floor(Math.random() * 300 + 200),
     interestType: Math.random() > 0.3 ? 'floating' : 'fixed',
-    spread: Math.floor(Math.random() * 200 + 150), // 150-350 bps
+    spread: Math.floor(Math.random() * 200 + 150),
     referenceRate: 'SOFR',
-    maturityDate: new Date(Date.now() + (Math.floor(Math.random() * 4 + 2) * 365 * 24 * 60 * 60 * 1000)), // 2-6 years
+    maturityDate: new Date(Date.now() + (Math.floor(Math.random() * 4 + 2) * 365 * 24 * 60 * 60 * 1000)),
     currency: 'USD',
     facilityType: facilityTypes[Math.floor(Math.random() * facilityTypes.length)],
     securityType: Math.random() > 0.3 ? 'secured' : 'unsecured',
@@ -243,24 +349,163 @@ export function createDigitalCreditInstrument(
   };
 }
 
-// Mock GraphQL query to NEL Protocol
-export async function queryNelProtocol(query: string, variables?: Record<string, unknown>): Promise<unknown> {
-  console.log('NEL Protocol Query:', query, variables);
-  
-  // Simulate API latency
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Return mock data based on query type
-  return { success: true, data: {} };
+// ============ NEL Protocol GraphQL Integration ============
+
+/**
+ * Query NEL Protocol GraphQL API
+ * Now uses the real NEL GraphQL client
+ */
+export async function queryNelProtocol(
+  operationType: 'getCreditInstrument' | 'searchInstruments' | 'createInstrument' | 'registerTokenization',
+  variables?: Record<string, unknown>
+): Promise<unknown> {
+  console.log('[NEL] Protocol Query:', operationType, variables);
+
+  try {
+    switch (operationType) {
+      case 'getCreditInstrument':
+        return await NELGraphQL.getCreditInstrument(variables?.nelId as string);
+
+      case 'searchInstruments':
+        return await NELGraphQL.searchInstruments(
+          variables?.filter as Parameters<typeof NELGraphQL.searchInstruments>[0],
+          variables?.limit as number,
+          variables?.offset as number
+        );
+
+      case 'createInstrument':
+        return await NELGraphQL.createCreditInstrument(
+          variables?.input as NELGraphQL.NELCreateInstrumentInput
+        );
+
+      case 'registerTokenization':
+        return await NELGraphQL.registerTokenization(
+          variables?.nelId as string,
+          variables?.input as NELGraphQL.NELTokenizationInput
+        );
+
+      default:
+        console.warn('[NEL] Unknown operation type:', operationType);
+        return { success: false, error: 'Unknown operation' };
+    }
+  } catch (error) {
+    console.error('[NEL] Query failed:', error);
+    // Graceful degradation - return empty result
+    return null;
+  }
 }
 
-// Calculate document hash (would use proper hashing in production)
-export function calculateDocumentHash(content: ArrayBuffer): string {
-  // Simple hash simulation - in production use crypto.subtle.digest('SHA-256', content)
-  const view = new Uint8Array(content);
-  let hash = 0;
-  for (let i = 0; i < view.length; i++) {
-    hash = ((hash << 5) - hash + view[i]) | 0;
-  }
-  return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
+/**
+ * Sync a Digital Credit Instrument to NEL Protocol
+ */
+export async function syncToNelProtocol(instrument: DigitalCreditInstrument): Promise<string | null> {
+  return NELGraphQL.syncLoanToNEL({
+    nelId: instrument.nelId,
+    borrowerName: instrument.terms.borrowerName,
+    facilityAmount: BigInt(instrument.terms.facilityAmount * 100), // Convert to cents
+    currency: instrument.terms.currency,
+    interestType: instrument.terms.interestType,
+    interestRateBps: instrument.terms.interestRateBps,
+    spread: instrument.terms.spread,
+    referenceRate: instrument.terms.referenceRate,
+    maturityDate: instrument.terms.maturityDate,
+    facilityType: instrument.terms.facilityType,
+    securityType: instrument.terms.securityType,
+    seniorityRank: instrument.terms.seniorityRank,
+    documentHash: instrument.documents[0]?.hash,
+  });
 }
+
+/**
+ * Sync tokenization status to NEL Protocol
+ */
+export async function syncTokenizationToNelProtocol(
+  nelId: string,
+  tokenization: {
+    tokenAddress: string;
+    blockchain: string;
+    chainId: number;
+    tokenSymbol: string;
+    totalUnits: number;
+    unitValue: number;
+    identityRegistry?: string;
+    compliance?: string;
+  }
+): Promise<boolean> {
+  return NELGraphQL.syncTokenizationToNEL(nelId, {
+    ...tokenization,
+    unitValue: BigInt(tokenization.unitValue * 100), // Convert to cents
+  });
+}
+
+/**
+ * Fetch instrument from NEL Protocol
+ */
+export async function fetchFromNelProtocol(nelId: string): Promise<NELGraphQL.NELCreditInstrument | null> {
+  return NELGraphQL.getCreditInstrument(nelId);
+}
+
+/**
+ * Check if NEL Protocol is available
+ */
+export async function isNelProtocolAvailable(): Promise<boolean> {
+  return NELGraphQL.checkNELHealth();
+}
+
+// ============ Document Hashing ============
+
+/**
+ * Calculate SHA-256 hash of document content
+ * Uses Web Crypto API for proper cryptographic hashing
+ */
+export async function calculateDocumentHash(content: ArrayBuffer): Promise<string> {
+  try {
+    // Use Web Crypto API for proper SHA-256 hashing
+    const hashBuffer = await crypto.subtle.digest('SHA-256', content);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return '0x' + hashHex;
+  } catch (error) {
+    console.error('[NEL] Crypto hash failed, using fallback:', error);
+    // Fallback for environments without crypto.subtle
+    return calculateDocumentHashFallback(content);
+  }
+}
+
+/**
+ * Synchronous version for compatibility
+ */
+export function calculateDocumentHashSync(content: ArrayBuffer): string {
+  return calculateDocumentHashFallback(content);
+}
+
+/**
+ * Fallback hash implementation (not cryptographically secure)
+ * Only used when Web Crypto API is unavailable
+ */
+function calculateDocumentHashFallback(content: ArrayBuffer): string {
+  const view = new Uint8Array(content);
+  // Use a better hash algorithm (FNV-1a variant)
+  let h1 = 0x811c9dc5;
+  let h2 = 0x811c9dc5;
+
+  for (let i = 0; i < view.length; i++) {
+    h1 ^= view[i];
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= view[i];
+    h2 = Math.imul(h2, 0x01000193);
+    // Mix the hashes
+    h1 ^= h2 >> 16;
+    h2 ^= h1 >> 16;
+  }
+
+  // Combine both hashes for a longer output
+  const part1 = (h1 >>> 0).toString(16).padStart(8, '0');
+  const part2 = (h2 >>> 0).toString(16).padStart(8, '0');
+  const combined = (part1 + part2).repeat(4); // Extend to 64 chars
+
+  return '0x' + combined.slice(0, 64);
+}
+
+// Re-export NEL GraphQL functions for convenience
+export { NELGraphQL };

@@ -61,7 +61,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       // Step 1: Calculate hash
       setProgress(10);
       const buffer = await file.arrayBuffer();
-      const documentHash = calculateDocumentHash(buffer);
+      const documentHash = await calculateDocumentHash(buffer);
 
       // Step 2: Parse document with AI
       setProgress(30);
@@ -81,8 +81,8 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
         esg
       );
 
-      // Step 4: Store in global state
-      addLoan(instrument);
+      // Step 4: Store in database
+      await addLoan(instrument);
       setProgress(100);
 
       // Success!

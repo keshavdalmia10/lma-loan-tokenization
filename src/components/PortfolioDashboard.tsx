@@ -1,11 +1,36 @@
 'use client';
 
-import { TrendingDown, TrendingUp } from 'lucide-react';
-import { getPortfolioSummary } from '@/lib/store/loans';
+import { useState, useEffect } from 'react';
+import { TrendingDown, TrendingUp, Loader2 } from 'lucide-react';
+import { getPortfolioSummary, type PortfolioSummary } from '@/lib/store/loans';
 import { Card } from '@/components/ui/card';
 
 export default function PortfolioDashboard() {
-  const summary = getPortfolioSummary();
+  const [summary, setSummary] = useState<PortfolioSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPortfolioSummary()
+      .then(setSummary)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <div className="text-center text-gray-500 py-8">
+        Failed to load portfolio data
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
