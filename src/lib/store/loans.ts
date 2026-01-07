@@ -305,11 +305,16 @@ export async function getLoan(nelId: string): Promise<DigitalCreditInstrument | 
 }
 
 export async function getAllLoans(): Promise<DigitalCreditInstrument[]> {
-  const loans = await prisma.loan.findMany({
-    include: loanInclude,
-    orderBy: { createdAt: 'desc' },
-  });
-  return loans.map(loan => toDomainLoan(loan as LoanWithRelations));
+  try {
+    const loans = await prisma.loan.findMany({
+      include: loanInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+    return loans.map(loan => toDomainLoan(loan as LoanWithRelations));
+  } catch (error) {
+    console.error('[Store] Failed to fetch loans, returning empty array:', error);
+    return [];
+  }
 }
 
 export async function updateLoan(nelId: string, updates: Partial<DigitalCreditInstrument>): Promise<void> {
@@ -438,86 +443,104 @@ async function ensureParticipant(participant: Participant): Promise<string> {
 }
 
 export async function getTrades(): Promise<Trade[]> {
-  const trades = await prisma.trade.findMany({
-    include: {
-      seller: true,
-      buyer: true,
-      loan: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  try {
+    const trades = await prisma.trade.findMany({
+      include: {
+        seller: true,
+        buyer: true,
+        loan: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return trades.map(t => ({
-    id: t.id,
-    loanId: t.loan.nelId,
-    tokenAddress: t.tokenAddress,
-    seller: toDomainParticipant(t.seller),
-    buyer: toDomainParticipant(t.buyer),
-    units: t.units,
-    pricePerUnit: Number(t.pricePerUnit) / 100,
-    totalValue: Number(t.totalValue) / 100,
-    status: t.status as Trade['status'],
-    validation: t.validation as unknown as Trade['validation'],
-    createdAt: t.createdAt,
-    settledAt: t.settledAt ?? undefined,
-    txHash: t.txHash ?? undefined,
-    settlementTime: t.settlementTime ?? undefined,
-  }));
+    return trades.map(t => ({
+      id: t.id,
+      loanId: t.loan.nelId,
+      tokenAddress: t.tokenAddress,
+      seller: toDomainParticipant(t.seller),
+      buyer: toDomainParticipant(t.buyer),
+      units: t.units,
+      pricePerUnit: Number(t.pricePerUnit) / 100,
+      totalValue: Number(t.totalValue) / 100,
+      status: t.status as Trade['status'],
+      validation: t.validation as unknown as Trade['validation'],
+      createdAt: t.createdAt,
+      settledAt: t.settledAt ?? undefined,
+      txHash: t.txHash ?? undefined,
+      settlementTime: t.settlementTime ?? undefined,
+    }));
+  } catch (error) {
+    console.error('[Store] Failed to fetch trades, returning empty array:', error);
+    return [];
+  }
 }
 
 export async function getPortfolioSummary(): Promise<PortfolioSummary> {
-  const [loans, trades] = await Promise.all([
-    prisma.loan.findMany({
-      include: { tokenization: true },
-    }),
-    prisma.trade.findMany({
-      where: { status: 'settled' },
-      orderBy: { settledAt: 'desc' },
-      take: 5,
-      include: { seller: true, buyer: true, loan: true },
-    }),
-  ]);
+  try {
+    const [loans, trades] = await Promise.all([
+      prisma.loan.findMany({
+        include: { tokenization: true },
+      }),
+      prisma.trade.findMany({
+        where: { status: 'settled' },
+        orderBy: { settledAt: 'desc' },
+        take: 5,
+        include: { seller: true, buyer: true, loan: true },
+      }),
+    ]);
 
-  const totalValue = loans.reduce((sum, l) => sum + Number(l.facilityAmount), 0) / 100;
-  const tokenizedLoans = loans.filter(l =>
-    l.tokenization?.status === 'trading' || l.tokenization?.status === 'minted'
-  );
-  const tokenizedValue = tokenizedLoans.reduce((sum, l) => sum + Number(l.facilityAmount), 0) / 100;
+    const totalValue = loans.reduce((sum, l) => sum + Number(l.facilityAmount), 0) / 100;
+    const tokenizedLoans = loans.filter(l =>
+      l.tokenization?.status === 'trading' || l.tokenization?.status === 'minted'
+    );
+    const tokenizedValue = tokenizedLoans.reduce((sum, l) => sum + Number(l.facilityAmount), 0) / 100;
 
-  // Calculate average settlement time for tokenized trades
-  const settledTrades = await prisma.trade.findMany({
-    where: { settlementTime: { not: null } },
-  });
-  const avgSettlementTimeTokenized = settledTrades.length > 0
-    ? settledTrades.reduce((sum, t) => sum + (t.settlementTime || 0), 0) / settledTrades.length
-    : 0;
+    // Calculate average settlement time for tokenized trades
+    const settledTrades = await prisma.trade.findMany({
+      where: { settlementTime: { not: null } },
+    });
+    const avgSettlementTimeTokenized = settledTrades.length > 0
+      ? settledTrades.reduce((sum, t) => sum + (t.settlementTime || 0), 0) / settledTrades.length
+      : 0;
 
-  const recentTrades: Trade[] = trades.map(t => ({
-    id: t.id,
-    loanId: t.loan.nelId,
-    tokenAddress: t.tokenAddress,
-    seller: toDomainParticipant(t.seller),
-    buyer: toDomainParticipant(t.buyer),
-    units: t.units,
-    pricePerUnit: Number(t.pricePerUnit) / 100,
-    totalValue: Number(t.totalValue) / 100,
-    status: t.status as Trade['status'],
-    validation: t.validation as unknown as Trade['validation'],
-    createdAt: t.createdAt,
-    settledAt: t.settledAt ?? undefined,
-    txHash: t.txHash ?? undefined,
-    settlementTime: t.settlementTime ?? undefined,
-  }));
+    const recentTrades: Trade[] = trades.map(t => ({
+      id: t.id,
+      loanId: t.loan.nelId,
+      tokenAddress: t.tokenAddress,
+      seller: toDomainParticipant(t.seller),
+      buyer: toDomainParticipant(t.buyer),
+      units: t.units,
+      pricePerUnit: Number(t.pricePerUnit) / 100,
+      totalValue: Number(t.totalValue) / 100,
+      status: t.status as Trade['status'],
+      validation: t.validation as unknown as Trade['validation'],
+      createdAt: t.createdAt,
+      settledAt: t.settledAt ?? undefined,
+      txHash: t.txHash ?? undefined,
+      settlementTime: t.settlementTime ?? undefined,
+    }));
 
-  return {
-    totalLoans: loans.length,
-    totalValue,
-    tokenizedValue,
-    tokenizationRate: totalValue > 0 ? (tokenizedValue / totalValue) * 100 : 0,
-    avgSettlementTime: 27, // Traditional: 27 days average
-    avgSettlementTimeTokenized,
-    recentTrades,
-  };
+    return {
+      totalLoans: loans.length,
+      totalValue,
+      tokenizedValue,
+      tokenizationRate: totalValue > 0 ? (tokenizedValue / totalValue) * 100 : 0,
+      avgSettlementTime: 27, // Traditional: 27 days average
+      avgSettlementTimeTokenized,
+      recentTrades,
+    };
+  } catch (error) {
+    console.error('[Store] Failed to fetch portfolio summary, returning defaults:', error);
+    return {
+      totalLoans: 0,
+      totalValue: 0,
+      tokenizedValue: 0,
+      tokenizationRate: 0,
+      avgSettlementTime: 27,
+      avgSettlementTimeTokenized: 0,
+      recentTrades: [],
+    };
+  }
 }
 
 // ============ Participant Operations ============

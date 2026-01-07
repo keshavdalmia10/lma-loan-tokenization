@@ -34,4 +34,4 @@ services:
 databases:
   - name: db
     engine: PG
-    production: true
+    production: false
