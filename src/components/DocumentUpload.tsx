@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Upload, FileText, Zap } from 'lucide-react';
 import { parseDocument, createDigitalCreditInstrument, calculateDocumentHash } from '@/lib/services/nel-protocol';
-import { addLoan } from '@/lib/store/loans';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -81,8 +80,17 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
         esg
       );
 
-      // Step 4: Store in database
-      await addLoan(instrument);
+      // Step 4: Store in database via API
+      const saveResponse = await fetch('/api/loans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(instrument),
+      });
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json();
+        throw new Error(errorData.error || 'Failed to save loan');
+      }
       setProgress(100);
 
       // Success!
@@ -133,16 +141,13 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
                 onChange={handleFileSelect}
                 disabled={isProcessing}
               />
-              <label htmlFor="file-upload">
-                <Button variant="outline">
-                  Choose File
-                </Button>
-              </label>
-              <label htmlFor="file-upload">
-                <Button variant="outline" className="cursor-pointer">
-                  Choose File
-                </Button>
-              </label>
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById('file-upload')?.click()}
+                type="button"
+              >
+                Choose File
+              </Button>
               <p className="text-xs text-gray-400">PDF or Word document up to 10MB</p>
             </div>
           )}

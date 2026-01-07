@@ -1,0 +1,40 @@
+name: lma-loan-tokenization
+region: nyc
+services:
+  - name: web
+    dockerfile_path: Dockerfile
+    github:
+      repo: keshavdalmia10/lma-loan-tokenization
+      branch: main
+      deploy_on_push: true
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: NEXT_PUBLIC_BLOCKCHAIN_MODE
+        scope: RUN_TIME
+        value: "mock"
+      - key: NEXT_PUBLIC_PRIVY_APP_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: NEXT_PUBLIC_PIMLICO_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+    health_check:
+      http_path: /api/loans?summary=true
+
+databases:
+  - name: db
+    engine: PG
+    production: false
+    cluster_name: lma-db
+    db_name: lma_loan_tokenization
+    db_user: lma_user
