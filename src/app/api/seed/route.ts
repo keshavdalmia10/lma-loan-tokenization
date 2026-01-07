@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/db/prisma';
 
 // POST /api/seed - Seed database with demo data
 // Add a simple auth check to prevent abuse
