@@ -26,8 +26,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install openssl for Prisma
-RUN apk add --no-cache openssl
+# Install openssl for Prisma and install prisma CLI globally
+RUN apk add --no-cache openssl && npm install -g prisma@6
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs

@@ -2,7 +2,7 @@
 set -e
 
 echo "Running Prisma migrations..."
-node ./node_modules/prisma/build/index.js migrate deploy
+prisma migrate deploy
 
 echo "Starting server..."
 node server.js
