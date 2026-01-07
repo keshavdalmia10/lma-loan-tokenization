@@ -26,6 +26,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -36,6 +39,13 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/package.json ./package.json
+
+# Create startup script that runs migrations then starts server
+COPY --from=builder /app/start.sh ./start.sh
+RUN chmod +x ./start.sh
 
 USER nextjs
 
@@ -44,4 +54,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["./start.sh"]
