@@ -36,11 +36,17 @@ fi
 # Run Prisma migrations before starting server
 echo "Preparing database..."
 if [ -n "${DATABASE_URL:-}" ]; then
-  if ! npx prisma migrate deploy --skip-generate; then
-    echo "⚠ Warning: Failed to run migrations"
-    echo "   This may be expected if database is already up to date"
-  else
+  echo "Attempting prisma migrate deploy..."
+  if prisma migrate deploy; then
     echo "✓ Database migrations applied successfully"
+  else
+    echo "⚠ Migration failed, trying db push..."
+    if prisma db push --accept-data-loss; then
+      echo "✓ Database schema pushed successfully"
+    else
+      echo "⚠ Warning: Both migrate and db push failed"
+      echo "   Database may not have correct schema"
+    fi
   fi
 else
   echo "⚠ Warning: Skipping migrations - DATABASE_URL not configured"
