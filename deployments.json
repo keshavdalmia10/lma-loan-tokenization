@@ -1,0 +1,18 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "deployer": "0x47A7A9785491DC44E2F513a7A9C356CcD4FcFE6f",
+  "timestamp": "2026-01-06T23:59:00.000Z",
+  "contracts": {
+    "LoanTokenFactory": "0x0A111950eBfC20dB3Da9107cB596974dA4D86b1c",
+    "ClaimTopicsRegistry": "0x00c42F59E705e64c81afd03CD04d62Ebd07F5282",
+    "TrustedIssuersRegistry": "0x5B5248B33c36192f2AdbCd5e4C81E7edC72A760d"
+  },
+  "claimTopics": {
+    "KYC": 1,
+    "ACCREDITATION": 2,
+    "JURISDICTION": 3,
+    "AML": 4,
+    "QUALIFIED_INVESTOR": 5
+  }
+}

@@ -60,7 +60,7 @@ export async function parseDocumentWithClaude(documentText: string): Promise<Doc
     console.log('[Claude] Document length:', documentText.length, 'characters');
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-latest',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       messages: [
         {

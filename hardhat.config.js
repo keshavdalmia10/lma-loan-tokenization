@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-ethers");
-require("dotenv").config();
+require("dotenv").config({ path: '.env.local' });
+require("dotenv").config(); // Also load .env as fallback
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -8,8 +9,9 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200,
+        runs: 1, // Minimize bytecode size for deployment
       },
+      viaIR: true, // Enable IR-based optimization for smaller bytecode
     },
   },
   networks: {
@@ -45,6 +47,11 @@ module.exports = {
       url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 8453,
+    },
+    baseSepolia: {
+      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 84532,
     },
   },
   paths: {

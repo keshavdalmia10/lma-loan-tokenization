@@ -1,6 +1,5 @@
 import { http, createConfig } from 'wagmi';
 import { hardhat, mainnet, polygon, sepolia, base, baseSepolia } from 'wagmi/chains';
-import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
 
 // Custom localhost chain matching Hardhat configuration
 const localhost = {
@@ -13,33 +12,24 @@ const localhost = {
   },
 } as const;
 
-// WalletConnect project ID (get from cloud.walletconnect.com)
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id';
-
+/**
+ * Wagmi configuration for "Invisible Crypto" mode
+ *
+ * NOTE: External wallet connectors (MetaMask, WalletConnect, Coinbase) are removed.
+ * Privy handles wallet creation and management via embedded MPC wallets.
+ * Users never see wallet connection UI - they just sign in with email/social.
+ */
 export const wagmiConfig = createConfig({
-  chains: [localhost, mainnet, polygon, sepolia, base, baseSepolia],
-  connectors: [
-    injected(), // MetaMask and other injected wallets
-    walletConnect({
-      projectId,
-      metadata: {
-        name: 'LMA Loan Tokenization',
-        description: 'Syndicated Loan Tokenization Platform',
-        url: 'https://lma-loan-tokenization.vercel.app',
-        icons: ['https://lma-loan-tokenization.vercel.app/icon.png'],
-      },
-    }),
-    coinbaseWallet({
-      appName: 'LMA Loan Tokenization',
-    }),
-  ],
+  chains: [baseSepolia, base, localhost, mainnet, polygon, sepolia],
+  // No connectors - Privy manages wallet connection internally
+  connectors: [],
   transports: {
+    [baseSepolia.id]: http(process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'),
+    [base.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'),
     [localhost.id]: http('http://127.0.0.1:8545'),
     [mainnet.id]: http(),
     [polygon.id]: http(),
     [sepolia.id]: http(),
-    [base.id]: http(),
-    [baseSepolia.id]: http(),
   },
   ssr: true,
 });
@@ -50,6 +40,11 @@ export const DEPLOYED_CONTRACTS: Record<number, {
   claimTopicsRegistry: string;
   trustedIssuersRegistry: string;
 }> = {
+  [baseSepolia.id]: {
+    loanTokenFactory: process.env.NEXT_PUBLIC_FACTORY_ADDRESS_BASE_SEPOLIA || '',
+    claimTopicsRegistry: process.env.NEXT_PUBLIC_CLAIM_TOPICS_REGISTRY_BASE_SEPOLIA || '',
+    trustedIssuersRegistry: process.env.NEXT_PUBLIC_TRUSTED_ISSUERS_REGISTRY_BASE_SEPOLIA || '',
+  },
   [localhost.id]: {
     loanTokenFactory: process.env.NEXT_PUBLIC_FACTORY_ADDRESS || '',
     claimTopicsRegistry: process.env.NEXT_PUBLIC_CLAIM_TOPICS_REGISTRY || '',
@@ -66,9 +61,9 @@ export const DEPLOYED_CONTRACTS: Record<number, {
     trustedIssuersRegistry: '',
   },
   [base.id]: {
-    loanTokenFactory: '',
-    claimTopicsRegistry: '',
-    trustedIssuersRegistry: '',
+    loanTokenFactory: process.env.NEXT_PUBLIC_FACTORY_ADDRESS_BASE || '',
+    claimTopicsRegistry: process.env.NEXT_PUBLIC_CLAIM_TOPICS_REGISTRY_BASE || '',
+    trustedIssuersRegistry: process.env.NEXT_PUBLIC_TRUSTED_ISSUERS_REGISTRY_BASE || '',
   },
 };
 

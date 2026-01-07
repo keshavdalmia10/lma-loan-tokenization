@@ -3,21 +3,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { parseDocumentWithClaude, getMockParseResult } from '@/lib/services/claude-parser';
+import { logger } from '@/lib/utils/logger';
 
 // pdf-parse is a CommonJS module, so we need to handle the import carefully
 // For now, we'll extract text on the client side and send it to the API
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const body = await request.json();
     const { documentText, fileName, useMock } = body;
 
-    console.log(`[API] Parsing document: ${fileName}`);
-    console.log(`[API] Text length: ${documentText?.length || 0} characters`);
+    logger.api.api('POST', '/api/parse-document', { fileName, textLength: documentText?.length || 0 });
 
     // Use mock if no API key or if explicitly requested
     if (useMock || !process.env.ANTHROPIC_API_KEY) {
-      console.log('[API] Using mock parser (no API key or mock requested)');
+      logger.api.info('Using mock parser', { reason: useMock ? 'requested' : 'no API key' });
       const mockResult = getMockParseResult();
       return NextResponse.json({
         success: true,
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Validate document text
     if (!documentText || documentText.length < 50) {
-      console.log('[API] Document text too short, using mock');
+      logger.api.warn('Document text too short', { length: documentText?.length || 0 });
       const mockResult = getMockParseResult();
       return NextResponse.json({
         success: true,
@@ -39,8 +41,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse with Claude
-    console.log('[API] Calling Claude API...');
+    logger.api.info('Calling Claude API for document parsing');
     const result = await parseDocumentWithClaude(documentText);
+
+    logger.api.timing('Document parsed', Date.now() - startTime, { source: 'claude' });
 
     return NextResponse.json({
       success: true,
@@ -49,8 +53,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[API] Error parsing document:', error);
-    
+    logger.api.error('Document parsing failed', { error: String(error) });
+
     // Fall back to mock on error
     const mockResult = getMockParseResult();
     return NextResponse.json({

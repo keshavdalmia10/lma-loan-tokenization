@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Clock } from 'lucide-react';
-import { executeTransfer } from '@/lib/services/blockchain';
+import { Check, X, Clock, Loader2 } from 'lucide-react';
+import { useBlockchainService } from '@/hooks/useBlockchainService';
+import { useSmartAccount } from '@/hooks/useSmartAccount';
 import type { Trade, TransferValidation } from '@/lib/types/loan';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,18 +28,30 @@ export default function TransferSimulator({
     error?: string;
   } | null>(null);
 
+  // Use blockchain service hook for mock/real mode switching
+  const { service, mode, isReady, isLoading: serviceLoading } = useBlockchainService();
+  const { smartAccountAddress } = useSmartAccount();
+
   const handleSimulate = async () => {
+    if (!service) {
+      setSimulationResult({ error: 'Blockchain service not ready' });
+      return;
+    }
+
     setIsSimulating(true);
     setSimulationResult(null);
 
     try {
-      const mockSellerAddress = '0x1234567890abcdef1234567890abcdef12345678';
-      const mockBuyerAddress = '0xabcdef0123456789abcdef0123456789abcdef01';
+      // In real mode, use the smart account address; in mock mode, use mock addresses
+      const sellerAddress = mode === 'real' && smartAccountAddress
+        ? smartAccountAddress
+        : '0x1234567890abcdef1234567890abcdef12345678';
+      const buyerAddress = '0xabcdef0123456789abcdef0123456789abcdef01';
 
-      const trade = await executeTransfer(
+      const trade = await service.executeTransfer(
         tokenAddress,
-        mockSellerAddress,
-        mockBuyerAddress,
+        sellerAddress,
+        buyerAddress,
         units,
         price
       );
@@ -113,11 +126,28 @@ export default function TransferSimulator({
 
             <Button
               onClick={handleSimulate}
-              disabled={isSimulating}
+              disabled={isSimulating || !isReady || serviceLoading}
               className="w-full bg-blue-600 hover:bg-blue-700"
             >
-              {isSimulating ? 'Executing Transfer...' : 'Execute Transfer'}
+              {serviceLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Setting up account...
+                </>
+              ) : isSimulating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {mode === 'real' ? 'Submitting transaction...' : 'Executing Transfer...'}
+                </>
+              ) : (
+                'Execute Transfer'
+              )}
             </Button>
+            {mode === 'real' && (
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Gas fees are sponsored. No wallet popup required.
+              </p>
+            )}
           </div>
         </Card>
       )}

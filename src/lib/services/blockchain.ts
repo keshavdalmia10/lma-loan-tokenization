@@ -105,17 +105,20 @@ const mockParticipants: Map<string, Participant> = new Map([
 ]);
 
 // Initialize identity registry from participants
-mockParticipants.forEach((participant, key) => {
-  if (participant.identityContract) {
-    mockIdentityRegistry.set(participant.walletAddress!, {
+mockParticipants.forEach((participant, _key) => {
+  if (participant.identityContract && participant.walletAddress) {
+    mockIdentityRegistry.set(participant.walletAddress, {
       id: participant.identityContract,
-      walletAddress: participant.walletAddress!,
+      walletAddress: participant.walletAddress,
       claims: participant.claims || [],
       country: getCountryCode(participant.jurisdiction),
       isVerified: participant.claims?.every(c => c.isValid) ?? false
     });
   }
 });
+
+// Log initialized identities for debugging
+console.log('[ERC-3643] Identity Registry initialized with', mockIdentityRegistry.size, 'identities');
 
 function getCountryCode(jurisdiction: string): number {
   const countryCodes: Record<string, number> = {
@@ -132,6 +135,14 @@ function getCountryCode(jurisdiction: string): number {
 
 // Token balances storage
 const tokenBalances: Map<string, Map<string, number>> = new Map();
+
+// Initialize demo token with balances for testing
+const DEMO_TOKEN_ADDRESS = '0xDEMO_TOKEN_ADDRESS_FOR_TESTING';
+const demoBalances = new Map<string, number>();
+demoBalances.set('0x1234567890abcdef1234567890abcdef12345678', 50); // Goldman Sachs
+demoBalances.set('0xabcdef0123456789abcdef0123456789abcdef01', 30); // BlackRock
+demoBalances.set('0x9876543210fedcba9876543210fedcba98765432', 20); // Deutsche Bank
+tokenBalances.set(DEMO_TOKEN_ADDRESS, demoBalances);
 
 // Trade history
 const tradeHistory: Trade[] = [];
