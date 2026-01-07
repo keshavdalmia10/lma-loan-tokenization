@@ -13,11 +13,11 @@ A full-stack solution addressing the Loan Market Association's most critical cha
 
 Transform syndicated loans from static legal documents into **live, tradeable digital assets** with:
 
-1. **AI-Powered Document Parsing** - Extracts loan terms with 94% accuracy in <2 seconds
+1. **AI-Powered Document Parsing** - Claude AI extracts loan terms with high accuracy in seconds
 2. **NEL Protocol Digitization** - Creates standardized Digital Credit Instruments with NF2 formulas
 3. **ERC-3643 Tokenization** - Mints security tokens with embedded compliance logic
 4. **T+0 Settlement** - Blockchain transfers in 2-3 seconds (vs. 27 days traditional)
-5. **Compliance Automation** - KYC, accreditation, lockup validation on-chain
+5. **Invisible Crypto UX** - Web2-style sign-in with Privy, gasless transactions via ERC-4337
 
 ---
 
@@ -26,7 +26,8 @@ Transform syndicated loans from static legal documents into **live, tradeable di
 ### Prerequisites
 - Node.js 18+
 - PostgreSQL (local or cloud)
-- MetaMask or another Web3 wallet
+- Privy account (for authentication) - https://privy.io
+- Pimlico account (for gas sponsorship) - https://pimlico.io (optional)
 
 ### Installation
 
@@ -77,39 +78,55 @@ npm run dev
 ├── contracts/              # Solidity smart contracts
 │   ├── LoanToken.sol       # ERC-3643 security token
 │   ├── LoanTokenFactory.sol# Factory for deploying tokens
+│   ├── LoanTokenFactoryLight.sol # Lightweight factory variant
 │   └── erc3643/            # ERC-3643 compliance infrastructure
+│       ├── ClaimTopicsRegistry.sol
+│       ├── Compliance.sol
+│       ├── IdentityRegistry.sol
+│       └── TrustedIssuersRegistry.sol
 ├── prisma/
-│   ├── schema.prisma       # Database schema
-│   └── seed.ts             # Database seeding script
+│   ├── schema.prisma       # Database schema (Loan, Trade, Participant, etc.)
+│   ├── seed.ts             # Database seeding script
+│   └── migrations/         # Database migrations
 ├── scripts/
 │   ├── deploy.js           # Contract deployment script
+│   ├── deploy-light.js     # Lightweight deployment
 │   └── seed.js             # Blockchain seeding script
 ├── src/
 │   ├── app/
 │   │   ├── api/            # REST API routes
 │   │   │   ├── loans/      # Loan CRUD operations
+│   │   │   ├── parse-document/ # AI document parsing
 │   │   │   ├── participants/# Participant management
 │   │   │   └── trades/     # Trade history
-│   │   └── page.tsx        # Main UI
+│   │   └── page.tsx        # Main UI with tabs
 │   ├── components/
-│   │   ├── DocumentUpload.tsx
-│   │   ├── LoanCard.tsx
-│   │   ├── PortfolioDashboard.tsx
-│   │   ├── TransferSimulator.tsx
-│   │   ├── WalletButton.tsx# Wallet connection UI
-│   │   └── providers.tsx   # wagmi/React Query providers
+│   │   ├── AuthButton.tsx      # Web2-style sign-in (Privy)
+│   │   ├── AuthGate.tsx        # Auth wrapper component
+│   │   ├── DocumentUpload.tsx  # AI-powered document upload
+│   │   ├── LoanCard.tsx        # Loan display component
+│   │   ├── PortfolioDashboard.tsx # Portfolio KPIs
+│   │   ├── TransferSimulator.tsx  # Transfer demo with compliance
+│   │   └── providers.tsx       # React Query + Privy providers
 │   ├── hooks/
-│   │   └── useBlockchain.ts# React hooks for blockchain ops
+│   │   ├── useBlockchain.ts       # Blockchain operations hook
+│   │   ├── useBlockchainService.ts # Mock/live service hook
+│   │   └── useSmartAccount.ts     # ERC-4337 smart account hook
 │   └── lib/
-│       ├── contracts/abi.ts# Contract ABIs
-│       ├── db/prisma.ts    # Prisma client
+│       ├── contracts/abi.ts   # Contract ABIs
+│       ├── db/prisma.ts       # Prisma client
+│       ├── privy/config.ts    # Privy auth configuration
 │       ├── services/
-│       │   ├── blockchain.ts
-│       │   ├── nel-graphql.ts  # NEL Protocol GraphQL client
-│       │   └── nel-protocol.ts # Document parsing + NEL sync
-│       ├── store/loans.ts  # Database operations
-│       ├── types/loan.ts   # TypeScript types
-│       └── wagmi/config.ts # wagmi chain configuration
+│       │   ├── blockchain.ts        # Mock blockchain service
+│       │   ├── blockchain-real.ts   # Real blockchain integration
+│       │   ├── blockchain-factory.ts # Service factory
+│       │   ├── claude-parser.ts     # Claude AI document parsing
+│       │   ├── smart-account.ts     # ERC-4337 Safe smart accounts
+│       │   ├── nel-graphql.ts       # NEL Protocol GraphQL client
+│       │   └── nel-protocol.ts      # NEL Protocol service
+│       ├── store/loans.ts     # Database operations
+│       ├── types/loan.ts      # TypeScript types
+│       └── wagmi/config.ts    # wagmi chain configuration
 ```
 
 ---
@@ -120,7 +137,13 @@ npm run dev
 ┌─────────────────────────────────────────────────────────────┐
 │                        Frontend                              │
 │  Next.js 16 + React 19 + Tailwind CSS                       │
-│  WalletButton ─── wagmi/viem ─── MetaMask/WalletConnect     │
+│  AuthButton (Privy) ─── Smart Accounts (ERC-4337)           │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                 Authentication Layer                         │
+│  Privy (Email/Google/Apple) → Embedded MPC Wallet           │
+│  → Safe Smart Account (ERC-4337) → Pimlico Gas Sponsorship  │
 └─────────────────────┬───────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────┐
@@ -138,13 +161,14 @@ npm run dev
 ┌─────────────────────▼───────────────────────────────────────┐
 │               Blockchain Layer                               │
 │  ERC-3643 LoanToken + IdentityRegistry + Compliance         │
-│  Hardhat (local) / Polygon / Base (production)              │
+│  Hardhat (local) / Base Sepolia / Base (production)         │
 └─────────────────────┬───────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────┐
 │              External Services                               │
 │  NEL Protocol (Nammu21) GraphQL API                         │
 │  Claude AI for document parsing                             │
+│  Pimlico bundler/paymaster (ERC-4337)                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -152,13 +176,14 @@ npm run dev
 
 ## Features
 
-- Upload loan PDFs/Word docs
-- AI extracts terms, covenants, lenders, ESG data
+- **Invisible Crypto UX** - Web2-style sign-in (email, Google, Apple) via Privy
+- **Gasless Transactions** - ERC-4337 smart accounts with Pimlico gas sponsorship
+- Upload loan PDFs/Word docs for AI-powered extraction
+- Claude AI extracts terms, covenants, lenders, ESG data
 - Create Digital Credit Instruments (NEL Protocol)
-- Mint ERC-3643 security tokens
-- Multi-wallet support (MetaMask, WalletConnect, Coinbase)
-- Simulate token transfers with compliance validation
-- T+0 settlement (2.5 seconds vs 27 days)
+- Mint ERC-3643 security tokens with on-chain compliance
+- Simulate token transfers with 6-point compliance validation
+- T+0 settlement (2-3 seconds vs 27 days traditional)
 - Real-time portfolio dashboard with KPIs
 - Trade history with settlement times
 
@@ -190,12 +215,22 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/lma_loans"
 # AI (for document parsing)
 ANTHROPIC_API_KEY=sk-ant-...
 
+# Authentication (Privy)
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+
+# Account Abstraction (Pimlico - for gasless transactions)
+NEXT_PUBLIC_PIMLICO_API_KEY=your_pimlico_api_key
+
+# Chain Configuration
+NEXT_PUBLIC_CHAIN=baseSepolia  # or "base" for mainnet
+NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+NEXT_PUBLIC_BASE_RPC_URL=https://mainnet.base.org
+
 # NEL Protocol
 NEL_GRAPHQL_ENDPOINT=https://api.nammu21.com/graphql
 NEL_API_KEY=your_nel_api_key
 
 # Blockchain (after deployment)
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FACTORY_ADDRESS=0x...
 NEXT_PUBLIC_CLAIM_TOPICS_REGISTRY=0x...
 NEXT_PUBLIC_TRUSTED_ISSUERS_REGISTRY=0x...
@@ -229,6 +264,8 @@ Pre-loaded loan: **Acme Industrial Holdings** ($250M, 4.75% floating, 5-year)
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 16, React 19, Tailwind CSS |
+| Authentication | Privy (embedded wallets, social login) |
+| Account Abstraction | ERC-4337, Safe Smart Accounts, Pimlico |
 | Blockchain | wagmi v3, viem, Hardhat |
 | Smart Contracts | Solidity 0.8.20, ERC-3643, OpenZeppelin |
 | Database | PostgreSQL, Prisma ORM |
@@ -241,16 +278,19 @@ Pre-loaded loan: **Acme Industrial Holdings** ($250M, 4.75% floating, 5-year)
 
 ### Supported Networks
 - **Localhost** (Hardhat) - Development
+- **Base Sepolia** - Testnet (recommended for testing)
+- **Base** - Production L2 (recommended)
 - **Sepolia** - Ethereum testnet
 - **Polygon** - Production L2
-- **Base** - Production L2
 
 ### Deployment Checklist
 1. Set up PostgreSQL database (e.g., Neon, Supabase, AWS RDS)
-2. Deploy contracts to target network
-3. Configure environment variables
-4. Set up NEL Protocol API access
-5. Deploy to Vercel/Railway/AWS
+2. Configure Privy app at https://console.privy.io
+3. Set up Pimlico paymaster at https://dashboard.pimlico.io
+4. Deploy contracts to target network
+5. Configure environment variables
+6. Set up NEL Protocol API access
+7. Deploy to Vercel/Railway/AWS
 
 ---
 
@@ -259,9 +299,11 @@ Pre-loaded loan: **Acme Industrial Holdings** ($250M, 4.75% floating, 5-year)
 - LMA EDGE Hackathon: https://lmaedgehackathon.devpost.com
 - Nammu21 NEL Protocol: https://www.nammu21.com
 - ERC-3643 Standard: https://erc3643.org
+- Privy Documentation: https://docs.privy.io
+- Pimlico Documentation: https://docs.pimlico.io
 
 ---
 
-**Hackathon MVP - December 2025**
+**Hackathon MVP - January 2026**
 
 *Digitize. Tokenize. Settle. Repeat.*

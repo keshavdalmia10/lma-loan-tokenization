@@ -2,18 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { TrendingDown, TrendingUp, Loader2 } from 'lucide-react';
-import { getPortfolioSummary, type PortfolioSummary } from '@/lib/store/loans';
+import type { PortfolioSummary } from '@/lib/store/loans';
 import { Card } from '@/components/ui/card';
 
 export default function PortfolioDashboard() {
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getPortfolioSummary()
-      .then(setSummary)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    async function fetchSummary() {
+      try {
+        const response = await fetch('/api/loans?summary=true');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.status}`);
+        }
+        const data = await response.json();
+        setSummary(data);
+      } catch (err) {
+        console.error('Failed to load portfolio:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSummary();
   }, []);
 
   if (loading) {
@@ -27,7 +40,7 @@ export default function PortfolioDashboard() {
   if (!summary) {
     return (
       <div className="text-center text-gray-500 py-8">
-        Failed to load portfolio data
+        {error ? `Failed to load portfolio data: ${error}` : 'No portfolio data available'}
       </div>
     );
   }
