@@ -337,3 +337,19 @@ model TrustedIssuer {
   claimTopics Int[] // Array of CLAIM_TOPICS values
   createdAt   DateTime @default(now())
 }
+// ============ Client Log Model (Frontend Logging) ============
+model ClientLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+  service   String
+  level     String   // debug, info, warn, error
+  message   String
+  context   Json? // Additional context data
+  synced    Boolean  @default(true) // Whether log has been synced from client
+  createdAt DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([service])
+  @@index([level])
+  @@index([synced])
+}

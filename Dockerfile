@@ -26,14 +26,17 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install openssl for Prisma and install prisma CLI globally
-RUN apk add --no-cache openssl && npm install -g prisma@6
+# Install system dependencies first (least frequently changed)
+RUN apk add --no-cache openssl
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Install global tools
+RUN npm install -g prisma@6
 
-# Copy built application
+# Create non-root user (before file operations for proper ownership)
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy built application from builder stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -43,15 +46,24 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/package.json ./package.json
 
-# Create startup script that runs migrations then starts server
+# Copy startup script (avoid BuildKit-only COPY --chmod for compatibility)
 COPY --from=builder /app/start.sh ./start.sh
-RUN chmod +x ./start.sh
+RUN chmod 755 ./start.sh
 
+# Create logs directory with proper ownership and permissions
+RUN mkdir -p /app/logs && \
+    chown -R nextjs:nodejs /app/logs && \
+    chmod 755 /app/logs
+
+# Set non-root user for security (before CMD)
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || '3000') + '/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["./start.sh"]
