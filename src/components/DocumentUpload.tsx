@@ -127,10 +127,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       // Success - store the full instrument
       setParsedInstrument(instrument);
 
-      // Notify parent
-      setTimeout(() => {
-        onSuccess?.(instrument.nelId);
-      }, 1500);
+      // Don't auto-navigate - let user review the details first
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
