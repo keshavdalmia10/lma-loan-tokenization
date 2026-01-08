@@ -20,14 +20,14 @@ services:
         scope: RUN_TIME
         type: SECRET
       - key: NEXT_PUBLIC_BLOCKCHAIN_MODE
-        scope: RUN_TIME
+        scope: BUILD_TIME
         value: "mock"
       - key: NEXT_PUBLIC_PRIVY_APP_ID
-        scope: RUN_TIME
-        type: SECRET
+        scope: BUILD_TIME
+        value: "cmk36no8j00g1l80chsnue9cp"
       - key: NEXT_PUBLIC_PIMLICO_API_KEY
-        scope: RUN_TIME
-        type: SECRET
+        scope: BUILD_TIME
+        value: "pim_58UWEjQCKoHjQecKHjXqBg"
     health_check:
       http_path: /
 
