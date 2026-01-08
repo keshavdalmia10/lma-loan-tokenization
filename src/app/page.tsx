@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'lucide-react';
 import DocumentUpload from '@/components/DocumentUpload';
 import PortfolioDashboard from '@/components/PortfolioDashboard';
@@ -12,6 +12,36 @@ import { useBlockchainService } from '@/hooks/useBlockchainService';
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'upload' | 'dashboard' | 'transfer'>('dashboard');
   const { mode } = useBlockchainService();
+
+  const demoTokenAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f1aB1c';
+  const [demoBalances, setDemoBalances] = useState<
+    Array<{ participant: { name: string }; available: number }> | null
+  >(null);
+
+  useEffect(() => {
+    if (activeTab !== 'transfer') return;
+    let cancelled = false;
+
+    async function fetchBalances() {
+      try {
+        const res = await fetch(
+          `/api/balances?tokenAddress=${encodeURIComponent(demoTokenAddress)}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data)) {
+          setDemoBalances(data);
+        }
+      } catch {
+        if (!cancelled) setDemoBalances(null);
+      }
+    }
+
+    fetchBalances();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, demoTokenAddress]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -107,7 +137,7 @@ export default function Home() {
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Token Address</span>
-                    <span className="font-mono text-gray-900">0xDEMO...TOKEN</span>
+                    <span className="font-mono text-gray-900">0x742d...aB1c</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Total Units</span>
@@ -126,6 +156,20 @@ export default function Home() {
                     <span className="font-semibold text-blue-600">ERC-3643</span>
                   </div>
                 </div>
+
+                {demoBalances && demoBalances.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Holdings (DB-backed)</h4>
+                    <div className="space-y-2 text-sm">
+                      {demoBalances.map((b) => (
+                        <div key={b.participant.name} className="flex justify-between">
+                          <span className="text-gray-600">{b.participant.name}</span>
+                          <span className="font-semibold text-gray-900">{b.available} units</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Compliance Requirements</h4>
@@ -148,7 +192,7 @@ export default function Home() {
 
               {/* Transfer Simulator */}
               <TransferSimulator
-                tokenAddress="0xDEMO_TOKEN_ADDRESS_FOR_TESTING"
+                tokenAddress={demoTokenAddress}
                 tokenSymbol="LT-ACME"
                 unitValue={2_500_000}
               />

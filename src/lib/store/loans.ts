@@ -374,7 +374,7 @@ export async function updateLoan(nelId: string, updates: Partial<DigitalCreditIn
   }
 }
 
-export async function addTrade(trade: Trade): Promise<void> {
+export async function addTrade(trade: Trade): Promise<string> {
   // First ensure seller and buyer exist in participants
   const sellerId = await ensureParticipant(trade.seller);
   const buyerId = await ensureParticipant(trade.buyer);
@@ -393,23 +393,94 @@ export async function addTrade(trade: Trade): Promise<void> {
     throw new Error(`Loan not found for trade: ${trade.loanId}`);
   }
 
-  await prisma.trade.create({
-    data: {
-      loanId: loan.id,
-      tokenAddress: trade.tokenAddress,
-      sellerId,
-      buyerId,
-      units: trade.units,
-      pricePerUnit: BigInt(Math.round(trade.pricePerUnit * 100)),
-      totalValue: BigInt(Math.round(trade.totalValue * 100)),
-      status: trade.status,
-      validation: trade.validation as object,
-      createdAt: trade.createdAt,
-      settledAt: trade.settledAt,
-      txHash: trade.txHash,
-      settlementTime: trade.settlementTime,
-    },
+  const shouldApplyBalance = trade.status === 'executed' || trade.status === 'settled';
+
+  const created = await prisma.$transaction(async (tx) => {
+    const createdTrade = await tx.trade.create({
+      data: {
+        loanId: loan.id,
+        tokenAddress: trade.tokenAddress,
+        sellerId,
+        buyerId,
+        units: trade.units,
+        pricePerUnit: BigInt(Math.round(trade.pricePerUnit * 100)),
+        totalValue: BigInt(Math.round(trade.totalValue * 100)),
+        status: trade.status,
+        validation: trade.validation as object,
+        createdAt: trade.createdAt,
+        settledAt: trade.settledAt,
+        txHash: trade.txHash,
+        settlementTime: trade.settlementTime,
+      },
+    });
+
+    if (shouldApplyBalance) {
+      const [sellerBal, buyerBal] = await Promise.all([
+        tx.tokenBalance.findUnique({
+          where: {
+            participantId_tokenAddress: {
+              participantId: sellerId,
+              tokenAddress: trade.tokenAddress,
+            },
+          },
+          select: { balance: true },
+        }),
+        tx.tokenBalance.findUnique({
+          where: {
+            participantId_tokenAddress: {
+              participantId: buyerId,
+              tokenAddress: trade.tokenAddress,
+            },
+          },
+          select: { balance: true },
+        }),
+      ]);
+
+      const sellerBalance = sellerBal?.balance ?? 0;
+      const buyerBalance = buyerBal?.balance ?? 0;
+
+      await Promise.all([
+        tx.tokenBalance.upsert({
+          where: {
+            participantId_tokenAddress: {
+              participantId: sellerId,
+              tokenAddress: trade.tokenAddress,
+            },
+          },
+          update: {
+            balance: Math.max(0, sellerBalance - trade.units),
+          },
+          create: {
+            participantId: sellerId,
+            tokenAddress: trade.tokenAddress,
+            balance: Math.max(0, sellerBalance - trade.units),
+            frozenAmount: 0,
+          },
+        }),
+        tx.tokenBalance.upsert({
+          where: {
+            participantId_tokenAddress: {
+              participantId: buyerId,
+              tokenAddress: trade.tokenAddress,
+            },
+          },
+          update: {
+            balance: buyerBalance + trade.units,
+          },
+          create: {
+            participantId: buyerId,
+            tokenAddress: trade.tokenAddress,
+            balance: buyerBalance + trade.units,
+            frozenAmount: 0,
+          },
+        }),
+      ]);
+    }
+
+    return createdTrade;
   });
+
+  return created.id;
 }
 
 async function ensureParticipant(participant: Participant): Promise<string> {

@@ -20,6 +20,7 @@ export async function parseDocument(file: File): Promise<{
   lenders: LenderPosition[];
   esg?: ESGData;
   confidence: number;
+  explanations?: unknown;
   source?: string;
 }> {
   try {
@@ -50,6 +51,7 @@ export async function parseDocument(file: File): Promise<{
       lenders: result.lenders || [],
       esg: result.esg,
       confidence: result.confidence,
+      explanations: result.explanations,
       source: result.source
     };
 

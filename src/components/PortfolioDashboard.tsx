@@ -7,8 +7,19 @@ import { Card } from '@/components/ui/card';
 
 export default function PortfolioDashboard() {
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
+  const [balances, setBalances] = useState<
+    Array<{
+      participant: { name: string; walletAddress: string | null };
+      balance: number;
+      frozenAmount: number;
+      available: number;
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Demo token address (seeded) - used to show DB-backed balances
+  const demoTokenAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f1aB1c';
 
   useEffect(() => {
     async function fetchSummary() {
@@ -27,6 +38,24 @@ export default function PortfolioDashboard() {
       }
     }
     fetchSummary();
+  }, []);
+
+  useEffect(() => {
+    async function fetchBalances() {
+      try {
+        const res = await fetch(
+          `/api/balances?tokenAddress=${encodeURIComponent(demoTokenAddress)}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setBalances(data);
+        }
+      } catch {
+        // Non-fatal for dashboard
+      }
+    }
+    fetchBalances();
   }, []);
 
   if (loading) {
@@ -128,6 +157,31 @@ export default function PortfolioDashboard() {
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Token Balances (DB-backed) */}
+      {balances.length > 0 && (
+        <Card className="p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Token Balances (LT-ACME)</h3>
+          <div className="space-y-2">
+            {balances.map((b) => (
+              <div
+                key={b.participant.walletAddress ?? b.participant.name}
+                className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded border border-gray-200"
+              >
+                <span className="text-gray-800">
+                  {b.participant.name}
+                </span>
+                <span className="font-semibold text-gray-900">
+                  {b.available} units
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-3">
+            Source: database (TokenBalance)
+          </p>
         </Card>
       )}
 

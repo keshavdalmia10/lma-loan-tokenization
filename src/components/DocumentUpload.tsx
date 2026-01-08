@@ -37,6 +37,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   const [parsedInstrument, setParsedInstrument] = useState<DigitalCreditInstrument | null>(null);
   const [filename, setFilename] = useState<string>('');
   const [confidence, setConfidence] = useState<number>(0);
+  const [explanations, setExplanations] = useState<Record<string, { confidence: number; evidence: Array<{ quote: string; rationale?: string }> }> | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -66,6 +67,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
     setParsedInstrument(null);
     setFilename('');
     setConfidence(0);
+    setExplanations(null);
     setError(null);
     setProgress(0);
   };
@@ -94,10 +96,21 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
 
       // Step 2: Parse document with AI
       setProgress(30);
-      const { terms, covenants, lenders, esg, confidence: parseConfidence } = await parseDocument(file);
+      const { terms, covenants, lenders, esg, confidence: parseConfidence, explanations: parseExplanations } = await parseDocument(file);
 
       console.log(`Document parsed with ${Math.round(parseConfidence * 100)}% confidence`);
       setConfidence(parseConfidence);
+      const termsExplanations =
+        parseExplanations &&
+        typeof parseExplanations === 'object' &&
+        // @ts-expect-error - runtime narrowing for explainable extraction payload
+        parseExplanations.terms &&
+        // @ts-expect-error - runtime narrowing for explainable extraction payload
+        typeof parseExplanations.terms === 'object'
+          ? // @ts-expect-error - runtime narrowing for explainable extraction payload
+            (parseExplanations.terms as Record<string, { confidence: number; evidence: Array<{ quote: string; rationale?: string }> }>)
+          : null;
+      setExplanations(termsExplanations);
       setProgress(60);
 
       // Step 3: Create Digital Credit Instrument
@@ -140,6 +153,23 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   if (parsedInstrument) {
     const { terms, covenants, lenders, esg } = parsedInstrument;
 
+    const renderEvidence = (key: string) => {
+      const exp = explanations?.[key];
+      if (!exp) return null;
+      const top = exp.evidence?.[0];
+      return (
+        <div className="mt-1 text-[11px] text-gray-500">
+          <div className="flex items-center justify-between">
+            <span className="truncate">Evidence: {top?.quote ? `“${top.quote}”` : '—'}</span>
+            <span className="ml-2 shrink-0">{Math.round((exp.confidence ?? 0) * 100)}%</span>
+          </div>
+          {top?.rationale && (
+            <div className="mt-0.5 text-gray-400">{top.rationale}</div>
+          )}
+        </div>
+      );
+    };
+
     return (
       <div className="space-y-6">
         {/* Success Header */}
@@ -175,6 +205,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Borrower</p>
                 <p className="font-medium text-gray-900">{terms.borrowerName}</p>
+                {renderEvidence('borrowerName')}
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Facility Amount</p>
@@ -182,6 +213,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
                   <DollarSign className="h-4 w-4 text-green-600" />
                   {formatCurrency(terms.facilityAmount)}
                 </p>
+                {renderEvidence('facilityAmount')}
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Maturity Date</p>
@@ -189,6 +221,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
                   <Calendar className="h-4 w-4 text-orange-600" />
                   {formatDate(terms.maturityDate)}
                 </p>
+                {renderEvidence('maturityDate')}
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Interest Rate</p>
@@ -199,10 +232,12 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
                     : `${(terms.interestRateBps / 100).toFixed(2)}%`
                   }
                 </p>
+                {renderEvidence('interestRateBps')}
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Facility Type</p>
                 <p className="font-medium text-gray-900 capitalize">{terms.facilityType.replace('_', ' ')}</p>
+                {renderEvidence('facilityType')}
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Security</p>
@@ -210,6 +245,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
                   <Shield className="h-4 w-4 text-blue-600" />
                   {terms.securityType} / {terms.seniorityRank}
                 </p>
+                {renderEvidence('securityType')}
               </div>
             </div>
           </div>

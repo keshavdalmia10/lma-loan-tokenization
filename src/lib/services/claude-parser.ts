@@ -35,10 +35,44 @@ Return ONLY valid JSON in this exact structure:
   "covenants": [ ... ],
   "lenders": [ ... ],
   "esg": { ... } or null,
-  "confidence": 0.0 to 1.0 (your confidence in the extraction accuracy)
+  "confidence": 0.0 to 1.0 (your confidence in the extraction accuracy),
+  "explanations": {
+    "terms": {
+      "borrowerName": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "facilityAmount": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "interestRateBps": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "interestType": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "spread": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "referenceRate": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "maturityDate": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "currency": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "facilityType": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "securityType": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] },
+      "seniorityRank": { "confidence": 0.0 to 1.0, "evidence": [{"quote": "...", "rationale": "..."}] }
+    }
+  }
 }
 
+Rules for explanations:
+- Evidence quotes must be verbatim substrings from the provided document text.
+- Keep each quote short (ideally <= 200 chars) and include just enough context.
+- If unsure or not found, set confidence low and provide evidence as an empty array.
+
 If a field cannot be determined from the document, use reasonable defaults or null.`;
+
+export type EvidenceSnippet = {
+  quote: string;
+  rationale?: string;
+};
+
+export type FieldExplanation = {
+  confidence: number;
+  evidence: EvidenceSnippet[];
+};
+
+export type ExplainableExtraction = {
+  terms?: Record<string, FieldExplanation>;
+};
 
 export interface DocumentParseResult {
   terms: LoanTerms;
@@ -46,6 +80,7 @@ export interface DocumentParseResult {
   lenders: LenderPosition[];
   esg?: ESGData;
   confidence: number;
+  explanations?: ExplainableExtraction;
   rawClaudeResponse?: string;
 }
 
@@ -157,6 +192,7 @@ export async function parseDocumentWithClaude(documentText: string): Promise<Doc
         marginAdjustment: Number(parsed.esg.marginAdjustment) || undefined
       } : undefined,
       confidence: Number(parsed.confidence) || 0.8,
+      explanations: parsed.explanations as ExplainableExtraction | undefined,
       rawClaudeResponse: responseText
     };
 
@@ -224,6 +260,28 @@ export function getMockParseResult(): DocumentParseResult {
       { lenderId: 'l2', lenderName: 'Bank of America', commitment: 50_000_000, fundedAmount: 50_000_000, unfundedAmount: 0, percentage: 20, isLeadArranger: false },
       { lenderId: 'l3', lenderName: 'Barclays', commitment: 50_000_000, fundedAmount: 50_000_000, unfundedAmount: 0, percentage: 20, isLeadArranger: false }
     ],
-    confidence: 0.95
+    confidence: 0.95,
+    explanations: {
+      terms: {
+        borrowerName: {
+          confidence: 0.6,
+          evidence: [
+            {
+              quote: 'Borrower: (mock data)',
+              rationale: 'Fallback parser - not extracted from real document text.',
+            },
+          ],
+        },
+        facilityAmount: {
+          confidence: 0.6,
+          evidence: [
+            {
+              quote: 'Facility Amount: (mock data)',
+              rationale: 'Fallback parser - not extracted from real document text.',
+            },
+          ],
+        },
+      },
+    },
   };
 }
