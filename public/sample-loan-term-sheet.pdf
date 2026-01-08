@@ -1,0 +1,54 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 559 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+14 TL
+(Loan Term Sheet \(Sample\)) Tj T*
+() Tj T*
+(Borrower: Acme Manufacturing LLC) Tj T*
+(Facility Type: Term Loan) Tj T*
+(Facility Amount: USD 25,000,000) Tj T*
+(Currency: USD) Tj T*
+(Interest Type: Floating) Tj T*
+(Reference Rate: SOFR) Tj T*
+(Spread: 350 bps) Tj T*
+(All-in Rate: SOFR + 3.50%) Tj T*
+(Maturity Date: 2030-12-31) Tj T*
+(Security Type: Secured) Tj T*
+(Seniority Rank: Senior) Tj T*
+() Tj T*
+(Covenants:) Tj T*
+(- Leverage Ratio: <= 4.50x \(Quarterly\)) Tj T*
+(- Minimum Liquidity: >= USD 2,000,000 \(Monthly\)) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000317 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+926
+%%EOF

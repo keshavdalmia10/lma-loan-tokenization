@@ -1,0 +1,79 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1808 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+14 TL
+(LMA Facility Agreement - Cover Summary \(Sample\)) Tj T*
+() Tj T*
+(This is a short, narrative-style summary intended for document parsing demos.) Tj T*
+(It is NOT legal advice and is NOT a complete facility agreement.) Tj T*
+() Tj T*
+(Parties) Tj T*
+(Borrower: Acme Manufacturing LLC \(the "Borrower"\)) Tj T*
+(Arranger: Example Bank plc) Tj T*
+(Facility Agent: Example Bank plc) Tj T*
+(Security Agent: Example Security Trustee Ltd.) Tj T*
+() Tj T*
+(Facilities) Tj T*
+(Type: Senior Secured Term Loan Facility) Tj T*
+(Commitment: USD 25,000,000) Tj T*
+(Purpose: General corporate purposes and permitted acquisitions) Tj T*
+(Availability Period: 90 days from signing) Tj T*
+() Tj T*
+(Interest) Tj T*
+(Rate: SOFR + 3.50% per annum \(margin 350 bps\)) Tj T*
+(Interest Period: 1 month \(Borrower may elect 1 or 3 months\)) Tj T*
+(Default Interest: +2.00% above the rate otherwise applicable) Tj T*
+() Tj T*
+(Repayment & Maturity) Tj T*
+(Final Maturity Date: 31 December 2030) Tj T*
+(Amortisation: 1.00% of principal per quarter, balance due at maturity) Tj T*
+(Voluntary Prepayment: Allowed \(subject to customary notice and break costs\)) Tj T*
+() Tj T*
+(Security & Guarantees) Tj T*
+(Security: First-ranking security over material assets \(where permitted\)) Tj T*
+(Guarantees: Guarantees from material subsidiaries \(subject to limitations\)) Tj T*
+() Tj T*
+(Financial Covenants \(tested quarterly\)) Tj T*
+(Leverage Ratio: <= 4.50x) Tj T*
+(Interest Cover: >= 2.00x) Tj T*
+(Minimum Liquidity: >= USD 2,000,000) Tj T*
+() Tj T*
+(Events of Default \(summary\)) Tj T*
+(Non-payment, breach of financial covenants, insolvency, cross-default,) Tj T*
+(and unlawfulness \(subject to cure periods and thresholds where applicable\).) Tj T*
+() Tj T*
+(Governing Law) Tj T*
+(English law) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000317 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2176
+%%EOF
