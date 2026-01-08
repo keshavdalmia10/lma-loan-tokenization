@@ -49,6 +49,28 @@ export interface DocumentParseResult {
   rawClaudeResponse?: string;
 }
 
+// Map Claude's covenant type responses to valid Prisma enum values
+function normalizeCovenantType(type: string): 'financial' | 'affirmative' | 'negative' | 'reporting' {
+  const normalized = (type || '').toLowerCase();
+
+  // Map common variations to valid enum values
+  if (['financial', 'maximum', 'minimum', 'ratio', 'leverage', 'coverage', 'liquidity'].some(t => normalized.includes(t))) {
+    return 'financial';
+  }
+  if (['negative', 'restriction', 'prohibition', 'lien', 'debt'].some(t => normalized.includes(t))) {
+    return 'negative';
+  }
+  if (['affirmative', 'positive', 'maintenance', 'insurance', 'compliance'].some(t => normalized.includes(t))) {
+    return 'affirmative';
+  }
+  if (['reporting', 'disclosure', 'notice', 'financial statements'].some(t => normalized.includes(t))) {
+    return 'reporting';
+  }
+
+  // Default to financial for unknown types
+  return 'financial';
+}
+
 /**
  * Parse a loan document using Claude AI
  * @param documentText The extracted text from the PDF
@@ -104,7 +126,7 @@ export async function parseDocumentWithClaude(documentText: string): Promise<Doc
       },
       covenants: (parsed.covenants || []).map((c: Record<string, unknown>, i: number) => ({
         id: `cov-${i}`,
-        type: (c.type as string) || 'financial',
+        type: normalizeCovenantType((c.type as string) || ''),
         name: (c.name as string) || `Covenant ${i + 1}`,
         description: (c.description as string) || '',
         threshold: Number(c.threshold) || undefined,
