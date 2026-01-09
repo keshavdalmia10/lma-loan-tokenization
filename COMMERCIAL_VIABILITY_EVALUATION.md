@@ -13,6 +13,8 @@ The LMA Loan Tokenization Platform represents a comprehensive solution to three 
 
 By combining artificial intelligence for document processing, industry-standard digital protocols, and blockchain-based security tokens, this solution demonstrates the potential to reduce settlement times from 27+ days to under 3 seconds—a 99.7% improvement—while maintaining full regulatory compliance.
 
+Importantly, this is more than a conceptual prototype: the application is end-to-end, server-side and database-backed (not hardcoded demo state), with trade lifecycle, workflow audit trail, and token balances persisted as system-of-record data. The smart contract layer and deployment tooling support launching tokens and settling trades on real EVM-compatible networks (testnet or mainnet) when configured.
+
 This evaluation assesses the project's commercial viability across seven key dimensions: value proposition, design quality, scalability, efficiency gains, risk mitigation, innovation, and market opportunity.
 
 ---
@@ -41,7 +43,7 @@ This platform delivers an end-to-end digital pipeline that transforms traditiona
 
 3. **Compliant Tokenization** — Loans are converted into regulated security tokens following the ERC-3643 standard, embedding compliance rules directly into the asset itself.
 
-4. **Instant Settlement** — Ownership transfers execute on blockchain infrastructure in 2-3 seconds, with all compliance checks performed automatically.
+4. **Instant Settlement with Institutional Controls** — Ownership transfers execute on blockchain infrastructure in 2-3 seconds, with all compliance checks performed automatically and an institutional Maker/Checker/Agent workflow enforcing segregation of duties.
 
 ### Why This Matters
 
@@ -64,7 +66,8 @@ A key innovation of this platform is what the development team calls "Invisible 
 - Standard email or social sign-in (no cryptocurrency wallet setup)
 - Familiar document upload workflows
 - Clean dashboard with portfolio metrics
-- One-click transfer execution
+- Role-based transfer workflow (Propose → Approve → Execute)
+- Explainable AI extraction (evidence snippets + confidence per field)
 
 **What Users Don't See:**
 - Wallet creation, seed phrases, or private keys
@@ -89,7 +92,22 @@ The design anticipates integration with existing institutional systems:
 
 - **API-First Architecture** — All functionality is accessible programmatically
 - **Flexible Deployment** — Can operate alongside legacy systems during transition
-- **Audit Trail** — Every action is logged with timestamps for compliance review
+- **Maker/Checker/Agent Controls** — Segregation of duties enforced server-side through role-gated workflow transitions
+- **Workflow Queue Visibility** — Dashboard surfaces proposed/approved trades to support operational oversight
+- **Audit Trail** — Every workflow transition is recorded with actor + timestamp for compliance review
+
+### Current Feature Set (As Implemented)
+
+The platform already ships as a functional application with a complete data and workflow layer:
+
+- **AI-assisted document intake** — Upload and parse loan documents into structured terms and covenant metadata
+- **Explainable extraction** — Evidence snippets + confidence per extracted field to support review and auditability
+- **Portfolio dashboard** — Loan portfolio summary and operational visibility into pending workflow items
+- **Compliant tokenization flow** — Token deployment via a factory pattern aligned to ERC-3643 concepts
+- **Server-side eligibility checks** — Transfer/trade validation enforced via API (not only client-side)
+- **Maker/Checker/Agent workflow** — Propose → Approve/Reject → Execute with persisted audit metadata
+- **DB-backed trade and balance ledger** — Trades, statuses, workflow history, and balances are stored in the database and served via APIs
+- **Deployment-ready packaging** — Containerized build and environment-driven configuration for chain/DB settings
 
 ---
 
@@ -106,6 +124,14 @@ The platform is built on a modern technology stack designed for institutional sc
 | **Database** | PostgreSQL + Prisma | Enterprise-grade, proven at scale |
 | **Blockchain** | EVM-compatible chains | Multi-chain deployment option |
 | **Authentication** | Privy (MPC wallets) | Enterprise identity integration |
+
+### Beyond a Prototype: Production-Path Readiness
+
+This implementation is designed to be deployable as a real application, not a hardcoded demo:
+
+- **No hardcoded “in-memory” business state** — Core entities (loans, participants, tokenizations, trades, workflow events, balances) are persisted and retrieved through the server layer
+- **Server-enforced controls** — Role-gated workflow transitions and compliance checks are enforced on the backend, aligning with institutional governance expectations
+- **Real-chain deployability** — Contracts and deployment scripts support deploying and operating on EVM-compatible blockchains; switching from local/mocked execution to a real network is an environment/configuration choice rather than a rewrite
 
 ### Multi-Dimensional Scaling
 
@@ -190,6 +216,14 @@ The most significant risk reduction comes from atomic settlement—the guarantee
 - **No Herstatt Risk** — Cross-border settlement is instantaneous
 - **No Pipeline Risk** — No trades "in flight" for days
 
+### Operational Controls (Segregation of Duties)
+
+In addition to technical settlement guarantees, the platform now demonstrates institutional operating controls that mirror real-world loan trading governance:
+
+- **Maker/Checker/Agent Workflow** — A trade is proposed by a trader (maker), approved/rejected by an independent checker, and executed by an agent
+- **Revalidation on Approval/Execution** — Eligibility checks are re-run server-side at each stage to reduce stale approvals and race conditions
+- **Tamper-Evident Audit Metadata** — Each workflow transition records actor identity (demo wallet), timestamp, and state change for auditability
+
 ### Compliance Automation
 
 The ERC-3643 security token standard embeds compliance directly into the asset:
@@ -212,7 +246,7 @@ The platform is designed for regulatory compliance:
 - **Identity Registry** — On-chain record of verified participants
 - **Document Linkage** — Legal documents hash-linked to tokens
 - **Controller Functions** — Emergency intervention capabilities for issuers
-- **Complete Audit Trail** — Every transaction recorded immutably
+- **Complete Audit Trail** — Every workflow transition and settlement action recorded with timestamps and actors
 
 ### Data Integrity
 
@@ -231,10 +265,12 @@ This solution represents a genuine advancement over existing approaches in sever
 **Unique Integration:**
 Most blockchain lending projects address only one aspect of the problem. This platform uniquely combines:
 - AI document parsing (automation)
+- Explainable AI extraction (evidence + confidence)
 - NEL Protocol (standardization)
 - ERC-3643 tokens (compliance)
 - Smart accounts (usability)
 - Gas sponsorship (accessibility)
+- Institutional trade workflow controls (Maker/Checker/Agent)
 
 No other solution in the market offers this integrated approach.
 
@@ -255,9 +291,11 @@ The "invisible crypto" design philosophy represents a significant evolution in e
 | Feature | This Platform | Generic Tokenization | Traditional Tech |
 |---------|---------------|---------------------|------------------|
 | AI Document Parsing | ✓ | Partial | ✗ |
+| Explainable Extraction (evidence/confidence) | ✓ | ✗ | ✗ |
 | NEL Protocol Native | ✓ | ✗ | ✗ |
 | Compliant by Design | ✓ | Partial | ✓ |
 | T+0 Settlement | ✓ | ✓ | ✗ |
+| Maker/Checker/Agent Workflow | ✓ | ✗ | ✓ |
 | No Crypto UX | ✓ | ✗ | ✓ |
 | 24/7 Trading | ✓ | ✓ | ✗ |
 
@@ -312,25 +350,26 @@ The market currently lacks a comprehensive solution:
 
 ### Go-to-Market Path
 
-**Phase 1: Proof of Concept (Current)**
-- Demonstrate full workflow capability
-- Validate technical feasibility
-- Gather institutional feedback
+**Phase 1: Deployable MVP (Current)**
+- Operable end-to-end application (UI + APIs + database + smart contracts)
+- Maker/Checker/Agent workflow, audit trail, and eligibility checks enforced server-side
+- Containerized deployment and environment-driven configuration for chain and database
 
-**Phase 2: Pilot Program (6 months)**
-- Deploy with 2-3 early adopter institutions
-- Process real loan transactions on testnet
-- Refine compliance modules per jurisdiction
+**Phase 2: Pilot Program (0–6 months)**
+- Deploy with 2–3 early adopter institutions in a controlled environment
+- Run real workflows on an EVM testnet (or permissioned EVM) with production-like ops (monitoring, incident process)
+- Validate governance: role-based approvals, auditability, and operational controls with compliance stakeholders
+- Refine jurisdictional policy modules, reporting, and integration requirements
 
-**Phase 3: Production Launch (12 months)**
-- Mainnet deployment on institutional-grade blockchain
-- Integration with existing trading venues
-- Regulatory approval for key markets
+**Phase 3: Production Rollout (6–12 months)**
+- Mainnet deployment on an institutional-grade EVM network (or regulated/permissioned EVM) with staged access
+- Harden key management and operational procedures (separation of duties, access controls, change management)
+- Integrate with existing loan operations tooling (data feeds, reporting, reconciliation, and custody where applicable)
 
-**Phase 4: Scale (18+ months)**
-- Multi-institution network effects
-- Expansion to adjacent markets
-- API marketplace for third-party services
+**Phase 4: Scale & Network Effects (12–18+ months)**
+- Expand to additional lenders/agents and increase asset coverage (syndicated loans → private credit and related products)
+- Add interoperability and standardized integrations to reduce onboarding friction
+- Establish a marketplace for third-party services (analytics, compliance reporting, and connectivity)
 
 ### Revenue Model Potential
 
