@@ -39,7 +39,7 @@ This platform delivers an end-to-end digital pipeline that transforms traditiona
 
 1. **Intelligent Document Processing** — Loan agreements are parsed using AI to extract terms, covenants, lender positions, and ESG commitments automatically, eliminating manual data entry.
 
-2. **Standardized Digitization** — Parsed data is structured according to the NEL Protocol (Nammu21), creating Digital Credit Instruments that serve as a single source of truth for all participants.
+2. **Standardized Digitization** — Parsed data is structured according to the NEL Protocol (Nammu21 has partnered with the LMA), creating Digital Credit Instruments that serve as a single source of truth for all participants.
 
 3. **Compliant Tokenization** — Loans are converted into regulated security tokens following the ERC-3643 standard, embedding compliance rules directly into the asset itself.
 
