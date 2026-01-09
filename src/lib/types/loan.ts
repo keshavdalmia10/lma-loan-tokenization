@@ -186,6 +186,40 @@ export interface ComplianceCheck {
   details: string;
 }
 
+export type TradeWorkflowRole = 'trader' | 'checker' | 'agent';
+
+export type TradeWorkflowActor = {
+  role: TradeWorkflowRole;
+  wallet: string;
+};
+
+export type TradeStatus =
+  | 'pending'
+  | 'validating'
+  | 'proposed'
+  | 'approved'
+  | 'executed'
+  | 'settled'
+  | 'rejected'
+  | 'expired';
+
+export type TradeWorkflowEvent = {
+  from: TradeStatus | 'none';
+  to: TradeStatus;
+  at: string; // ISO timestamp
+  actor: TradeWorkflowActor;
+  reason?: string;
+};
+
+export type TradeWorkflow = {
+  version: 1;
+  history: TradeWorkflowEvent[];
+  proposedBy?: TradeWorkflowActor;
+  approvedBy?: TradeWorkflowActor;
+  rejectedBy?: TradeWorkflowActor;
+  executedBy?: TradeWorkflowActor;
+};
+
 // Participant/Investor types - Updated for ERC-3643
 export interface Participant {
   id: string;
@@ -211,8 +245,9 @@ export interface Trade {
   units: number;
   pricePerUnit: number;
   totalValue: number;
-  status: 'pending' | 'validating' | 'approved' | 'executed' | 'settled' | 'rejected';
+  status: TradeStatus;
   validation?: TransferValidation;
+  workflow?: TradeWorkflow;
   createdAt: Date;
   settledAt?: Date;
   txHash?: string;

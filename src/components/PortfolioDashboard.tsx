@@ -3,10 +3,15 @@
 import { useState, useEffect } from 'react';
 import { TrendingDown, TrendingUp, Loader2 } from 'lucide-react';
 import type { PortfolioSummary } from '@/lib/store/loans';
+import type { Trade } from '@/lib/types/loan';
 import { Card } from '@/components/ui/card';
 
 export default function PortfolioDashboard() {
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
+  const [workflowQueue, setWorkflowQueue] = useState<{
+    proposed: Trade[];
+    approved: Trade[];
+  }>({ proposed: [], approved: [] });
   const [balances, setBalances] = useState<
     Array<{
       participant: { name: string; walletAddress: string | null };
@@ -16,6 +21,7 @@ export default function PortfolioDashboard() {
     }>
   >([]);
   const [loading, setLoading] = useState(true);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Demo token address (seeded) - used to show DB-backed balances
@@ -56,6 +62,32 @@ export default function PortfolioDashboard() {
       }
     }
     fetchBalances();
+  }, []);
+
+  useEffect(() => {
+    async function fetchWorkflowQueue() {
+      setWorkflowLoading(true);
+      try {
+        const [proposedRes, approvedRes] = await Promise.all([
+          fetch('/api/trades?status=proposed'),
+          fetch('/api/trades?status=approved'),
+        ]);
+
+        const proposed = proposedRes.ok ? ((await proposedRes.json()) as Trade[]) : [];
+        const approved = approvedRes.ok ? ((await approvedRes.json()) as Trade[]) : [];
+
+        setWorkflowQueue({
+          proposed: Array.isArray(proposed) ? proposed : [],
+          approved: Array.isArray(approved) ? approved : [],
+        });
+      } catch {
+        // Non-fatal for dashboard
+      } finally {
+        setWorkflowLoading(false);
+      }
+    }
+
+    fetchWorkflowQueue();
   }, []);
 
   if (loading) {
@@ -159,6 +191,82 @@ export default function PortfolioDashboard() {
           </div>
         </Card>
       )}
+
+      {/* Workflow Queue */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">Workflow Queue</h3>
+          <p className="text-xs text-gray-500">
+            {workflowLoading ? 'Refreshing…' : 'Live'}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">
+              Proposed (Checker)
+            </p>
+            <p className="text-2xl font-bold text-gray-900 mt-2">
+              {workflowQueue.proposed.length}
+            </p>
+
+            <div className="mt-3 space-y-2">
+              {workflowQueue.proposed.slice(0, 3).map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between text-sm p-2 bg-white rounded border border-gray-200"
+                >
+                  <span className="text-gray-800">
+                    {t.seller.name.split(' ').slice(0, 2).join(' ')} → {t.buyer.name
+                      .split(' ')
+                      .slice(0, 2)
+                      .join(' ')}
+                  </span>
+                  <span className="font-semibold text-gray-900">{t.units}u</span>
+                </div>
+              ))}
+
+              {workflowQueue.proposed.length === 0 && (
+                <p className="text-sm text-gray-600">No trades waiting for approval.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">
+              Approved (Agent)
+            </p>
+            <p className="text-2xl font-bold text-gray-900 mt-2">
+              {workflowQueue.approved.length}
+            </p>
+
+            <div className="mt-3 space-y-2">
+              {workflowQueue.approved.slice(0, 3).map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between text-sm p-2 bg-white rounded border border-gray-200"
+                >
+                  <span className="text-gray-800">
+                    {t.seller.name.split(' ').slice(0, 2).join(' ')} → {t.buyer.name
+                      .split(' ')
+                      .slice(0, 2)
+                      .join(' ')}
+                  </span>
+                  <span className="font-semibold text-gray-900">{t.units}u</span>
+                </div>
+              ))}
+
+              {workflowQueue.approved.length === 0 && (
+                <p className="text-sm text-gray-600">No trades waiting for execution.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-3">
+          Maker/Checker/Agent controls are enforced server-side.
+        </p>
+      </Card>
 
       {/* Token Balances (DB-backed) */}
       {balances.length > 0 && (

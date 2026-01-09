@@ -24,6 +24,12 @@ import type {
   Trade as PrismaTrade
 } from '@prisma/client';
 
+type PrismaTradeWithRelations = PrismaTrade & {
+  seller: PrismaParticipant;
+  buyer: PrismaParticipant;
+  loan: PrismaLoan;
+};
+
 // Type for Prisma loan with all relations included
 type LoanWithRelations = PrismaLoan & {
   documents: Array<{
@@ -407,6 +413,7 @@ export async function addTrade(trade: Trade): Promise<string> {
         totalValue: BigInt(Math.round(trade.totalValue * 100)),
         status: trade.status,
         validation: trade.validation as object,
+        workflow: trade.workflow as object,
         createdAt: trade.createdAt,
         settledAt: trade.settledAt,
         txHash: trade.txHash,
@@ -483,6 +490,169 @@ export async function addTrade(trade: Trade): Promise<string> {
   return created.id;
 }
 
+export async function getTradeById(id: string): Promise<Trade | undefined> {
+  const t = await prisma.trade.findUnique({
+    where: { id },
+    include: { seller: true, buyer: true, loan: true },
+  });
+  if (!t) return undefined;
+  return {
+    id: t.id,
+    loanId: t.loan.nelId,
+    tokenAddress: t.tokenAddress,
+    seller: toDomainParticipant(t.seller),
+    buyer: toDomainParticipant(t.buyer),
+    units: t.units,
+    pricePerUnit: Number(t.pricePerUnit) / 100,
+    totalValue: Number(t.totalValue) / 100,
+    status: t.status as Trade['status'],
+    validation: t.validation as unknown as Trade['validation'],
+    workflow: t.workflow as unknown as Trade['workflow'],
+    createdAt: t.createdAt,
+    settledAt: t.settledAt ?? undefined,
+    txHash: t.txHash ?? undefined,
+    settlementTime: t.settlementTime ?? undefined,
+  };
+}
+
+export async function updateTradeWorkflowAndStatus(params: {
+  id: string;
+  status: Trade['status'];
+  workflow: Trade['workflow'];
+  validation?: Trade['validation'];
+  settledAt?: Date;
+  txHash?: string;
+  settlementTime?: number;
+}): Promise<void> {
+  await prisma.trade.update({
+    where: { id: params.id },
+    data: {
+      status: params.status,
+      workflow: params.workflow as object,
+      validation: params.validation as object,
+      settledAt: params.settledAt,
+      txHash: params.txHash,
+      settlementTime: params.settlementTime,
+    },
+  });
+}
+
+export async function settleApprovedTrade(params: {
+  id: string;
+  workflow: Trade['workflow'];
+  validation?: Trade['validation'];
+  txHash: string;
+  settlementTime: number;
+}): Promise<Trade> {
+  const settledAt = new Date();
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const current = await tx.trade.findUnique({
+      where: { id: params.id },
+      include: { seller: true, buyer: true, loan: true },
+    });
+
+    if (!current) throw new Error('Trade not found');
+    if (current.status !== 'approved') {
+      throw new Error(`Trade is not approved (status=${current.status})`);
+    }
+
+    const nextTrade = await tx.trade.update({
+      where: { id: params.id },
+      data: {
+        status: 'settled',
+        workflow: params.workflow as object,
+        validation: params.validation as object,
+        settledAt,
+        txHash: params.txHash,
+        settlementTime: params.settlementTime,
+      },
+      include: { seller: true, buyer: true, loan: true },
+    });
+
+    const [sellerBal, buyerBal] = await Promise.all([
+      tx.tokenBalance.findUnique({
+        where: {
+          participantId_tokenAddress: {
+            participantId: nextTrade.sellerId,
+            tokenAddress: nextTrade.tokenAddress,
+          },
+        },
+        select: { balance: true },
+      }),
+      tx.tokenBalance.findUnique({
+        where: {
+          participantId_tokenAddress: {
+            participantId: nextTrade.buyerId,
+            tokenAddress: nextTrade.tokenAddress,
+          },
+        },
+        select: { balance: true },
+      }),
+    ]);
+
+    const sellerBalance = sellerBal?.balance ?? 0;
+    const buyerBalance = buyerBal?.balance ?? 0;
+
+    await Promise.all([
+      tx.tokenBalance.upsert({
+        where: {
+          participantId_tokenAddress: {
+            participantId: nextTrade.sellerId,
+            tokenAddress: nextTrade.tokenAddress,
+          },
+        },
+        update: {
+          balance: Math.max(0, sellerBalance - nextTrade.units),
+        },
+        create: {
+          participantId: nextTrade.sellerId,
+          tokenAddress: nextTrade.tokenAddress,
+          balance: Math.max(0, sellerBalance - nextTrade.units),
+          frozenAmount: 0,
+        },
+      }),
+      tx.tokenBalance.upsert({
+        where: {
+          participantId_tokenAddress: {
+            participantId: nextTrade.buyerId,
+            tokenAddress: nextTrade.tokenAddress,
+          },
+        },
+        update: {
+          balance: buyerBalance + nextTrade.units,
+        },
+        create: {
+          participantId: nextTrade.buyerId,
+          tokenAddress: nextTrade.tokenAddress,
+          balance: buyerBalance + nextTrade.units,
+          frozenAmount: 0,
+        },
+      }),
+    ]);
+
+    return nextTrade;
+  });
+
+  return {
+    id: updated.id,
+    loanId: updated.loan.nelId,
+    tokenAddress: updated.tokenAddress,
+    seller: toDomainParticipant(updated.seller),
+    buyer: toDomainParticipant(updated.buyer),
+    units: updated.units,
+    pricePerUnit: Number(updated.pricePerUnit) / 100,
+    totalValue: Number(updated.totalValue) / 100,
+    status: updated.status as Trade['status'],
+    validation: updated.validation as unknown as Trade['validation'],
+    workflow: updated.workflow as unknown as Trade['workflow'],
+    createdAt: updated.createdAt,
+    settledAt: updated.settledAt ?? undefined,
+    txHash: updated.txHash ?? undefined,
+    settlementTime: updated.settlementTime ?? undefined,
+  };
+}
+
 async function ensureParticipant(participant: Participant): Promise<string> {
   // Try to find existing participant by wallet address or name
   let existing = await prisma.participant.findFirst({
@@ -513,9 +683,10 @@ async function ensureParticipant(participant: Participant): Promise<string> {
   return created.id;
 }
 
-export async function getTrades(): Promise<Trade[]> {
+export async function getTrades(options?: { status?: Trade['status'] }): Promise<Trade[]> {
   try {
     const trades = await prisma.trade.findMany({
+      where: options?.status ? { status: options.status } : undefined,
       include: {
         seller: true,
         buyer: true,
@@ -535,6 +706,7 @@ export async function getTrades(): Promise<Trade[]> {
       totalValue: Number(t.totalValue) / 100,
       status: t.status as Trade['status'],
       validation: t.validation as unknown as Trade['validation'],
+      workflow: t.workflow as unknown as Trade['workflow'],
       createdAt: t.createdAt,
       settledAt: t.settledAt ?? undefined,
       txHash: t.txHash ?? undefined,
@@ -585,6 +757,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
       totalValue: Number(t.totalValue) / 100,
       status: t.status as Trade['status'],
       validation: t.validation as unknown as Trade['validation'],
+      workflow: t.workflow as unknown as Trade['workflow'],
       createdAt: t.createdAt,
       settledAt: t.settledAt ?? undefined,
       txHash: t.txHash ?? undefined,

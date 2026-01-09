@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, X, Clock, Loader2 } from 'lucide-react';
 import { useBlockchainService } from '@/hooks/useBlockchainService';
 import { useSmartAccount } from '@/hooks/useSmartAccount';
@@ -19,23 +19,68 @@ export default function TransferSimulator({
   tokenSymbol,
   unitValue,
 }: TransferSimulatorProps) {
+  const [role, setRole] = useState<'trader' | 'checker' | 'agent'>('trader');
   const [units, setUnits] = useState(5);
   const [price, setPrice] = useState(unitValue);
-  const [action, setAction] = useState<'validating' | 'executing' | null>(null);
+  const [action, setAction] = useState<
+    | 'validating'
+    | 'proposing'
+    | 'approving'
+    | 'rejecting'
+    | 'settling'
+    | 'loadingInbox'
+    | null
+  >(null);
   const [simulationResult, setSimulationResult] = useState<{
     trade?: Trade;
     validation?: TransferValidation;
     error?: string;
   } | null>(null);
 
+  const [inbox, setInbox] = useState<Trade[]>([]);
+
   // Use blockchain service hook for mock/real mode switching
-  const { service, mode, isReady, isLoading: serviceLoading } = useBlockchainService();
+  const { mode, isReady, isLoading: serviceLoading } = useBlockchainService();
   const { smartAccountAddress } = useSmartAccount();
 
   const sellerAddress = mode === 'real' && smartAccountAddress
     ? smartAccountAddress
     : '0x1234567890abcdef1234567890abcdef12345678';
   const buyerAddress = '0xabcdef0123456789abcdef0123456789abcdef01';
+
+  const demoActorWallet = useMemo(() => {
+    if (role === 'trader') return sellerAddress;
+    if (role === 'checker') return '0x9876543210fedcba9876543210fedcba98765432';
+    return '0x1111222233334444555566667777888899990000';
+  }, [role, sellerAddress]);
+
+  const workflowHeaders = useMemo(
+    () => ({
+      'Content-Type': 'application/json',
+      'x-demo-role': role,
+      'x-demo-wallet': demoActorWallet,
+    }),
+    [role, demoActorWallet]
+  );
+
+  const fetchInbox = async () => {
+    const status = role === 'checker' ? 'proposed' : role === 'agent' ? 'approved' : null;
+    if (!status) return;
+
+    setAction('loadingInbox');
+    try {
+      const res = await fetch(`/api/trades?status=${status}`);
+      if (!res.ok) throw new Error(await res.text());
+      const trades = (await res.json()) as Trade[];
+      setInbox(trades);
+    } catch (e) {
+      setSimulationResult({
+        error: e instanceof Error ? e.message : 'Failed to load inbox',
+      });
+    } finally {
+      setAction(null);
+    }
+  };
 
   const handleValidate = async () => {
     setAction('validating');
@@ -79,74 +124,123 @@ export default function TransferSimulator({
     }
   };
 
-  const handleExecute = async () => {
-    if (!service) {
-      setSimulationResult({ error: 'Blockchain service not ready' });
-      return;
-    }
-
-    setAction('executing');
-
+  const handlePropose = async () => {
+    setAction('proposing');
     try {
-      if (mode === 'mock') {
-        const res = await fetch('/api/trades/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tokenAddress,
-            seller: sellerAddress,
-            buyer: buyerAddress,
-            units,
-            pricePerUnit: price,
-          }),
+      const res = await fetch('/api/trades/workflow/propose', {
+        method: 'POST',
+        headers: workflowHeaders,
+        body: JSON.stringify({
+          tokenAddress,
+          seller: sellerAddress,
+          buyer: buyerAddress,
+          units,
+          pricePerUnit: price,
+        }),
+      });
+
+      const json = (await res.json()) as
+        | { success: true; trade: Trade }
+        | { success: false; error?: string; validation?: TransferValidation };
+
+      if (!res.ok || !json.success) {
+        setSimulationResult({
+          error: 'error' in json && json.error ? json.error : 'Propose failed',
+          validation: 'validation' in json ? json.validation : undefined,
         });
-        const json = (await res.json()) as
-          | { success: true; trade: Trade }
-          | { success: false; error?: string };
-
-        if (!res.ok || !json.success) {
-          setSimulationResult({
-            error:
-              'error' in json && json.error
-                ? json.error
-                : 'Transfer failed',
-          });
-          return;
-        }
-
-        setSimulationResult({ trade: json.trade });
         return;
       }
 
-      const trade = await service.executeTransfer(
-        tokenAddress,
-        sellerAddress,
-        buyerAddress,
-        units,
-        price
-      );
-
-      // Persist to DB-backed API so dashboard updates
-      try {
-        const res = await fetch('/api/trades', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(trade),
-        });
-        if (!res.ok) {
-          console.error(
-            '[TransferSimulator] Failed to persist trade:',
-            await res.text()
-          );
-        }
-      } catch (e) {
-        console.error('[TransferSimulator] Failed to persist trade:', e);
-      }
-
-      setSimulationResult({ trade });
-    } catch (error) {
+      setSimulationResult({ trade: json.trade, validation: json.trade.validation });
+    } catch (e) {
       setSimulationResult({
-        error: error instanceof Error ? error.message : 'Transfer failed',
+        error: e instanceof Error ? e.message : 'Propose failed',
+      });
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const handleApprove = async (tradeId: string) => {
+    setAction('approving');
+    try {
+      const res = await fetch('/api/trades/workflow/approve', {
+        method: 'POST',
+        headers: workflowHeaders,
+        body: JSON.stringify({ tradeId }),
+      });
+      const json = (await res.json()) as
+        | { success: true; trade: Trade }
+        | { success: false; error?: string; validation?: TransferValidation };
+      if (!res.ok || !json.success) {
+        setSimulationResult({
+          error: 'error' in json && json.error ? json.error : 'Approve failed',
+          validation: 'validation' in json ? json.validation : undefined,
+        });
+        return;
+      }
+      setSimulationResult({ trade: json.trade, validation: json.trade.validation });
+      await fetchInbox();
+    } catch (e) {
+      setSimulationResult({
+        error: e instanceof Error ? e.message : 'Approve failed',
+      });
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const handleReject = async (tradeId: string) => {
+    setAction('rejecting');
+    try {
+      const res = await fetch('/api/trades/workflow/reject', {
+        method: 'POST',
+        headers: workflowHeaders,
+        body: JSON.stringify({ tradeId, reason: 'Rejected by checker' }),
+      });
+      const json = (await res.json()) as
+        | { success: true; trade: Trade }
+        | { success: false; error?: string };
+      if (!res.ok || !json.success) {
+        setSimulationResult({
+          error: 'error' in json && json.error ? json.error : 'Reject failed',
+        });
+        return;
+      }
+      setSimulationResult({ trade: json.trade, validation: json.trade.validation });
+      await fetchInbox();
+    } catch (e) {
+      setSimulationResult({
+        error: e instanceof Error ? e.message : 'Reject failed',
+      });
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const handleSettle = async (tradeId: string) => {
+    setAction('settling');
+    try {
+      const res = await fetch('/api/trades/workflow/execute', {
+        method: 'POST',
+        headers: workflowHeaders,
+        body: JSON.stringify({ tradeId }),
+      });
+      const json = (await res.json()) as
+        | { success: true; trade: Trade }
+        | { success: false; error?: string; validation?: TransferValidation };
+      if (!res.ok || !json.success) {
+        setSimulationResult({
+          error: 'error' in json && json.error ? json.error : 'Execute failed',
+          validation: 'validation' in json ? json.validation : undefined,
+        });
+        return;
+      }
+      setSimulationResult({ trade: json.trade, validation: json.trade.validation });
+      await fetchInbox();
+    } catch (e) {
+      setSimulationResult({
+        error: e instanceof Error ? e.message : 'Execute failed',
       });
     } finally {
       setAction(null);
@@ -157,15 +251,34 @@ export default function TransferSimulator({
   const result = simulationResult;
   const validation = result?.trade?.validation ?? result?.validation;
   const isValidating = action === 'validating';
-  const isExecuting = action === 'executing';
   const canExecute = validation?.canTransfer === true;
+  const isProposing = action === 'proposing';
+  const isApproving = action === 'approving';
+  const isRejecting = action === 'rejecting';
+  const isSettling = action === 'settling';
+  const isLoadingInbox = action === 'loadingInbox';
 
   return (
     <div className="space-y-4">
       {/* Input Section */}
-      {!result && (
+      {!result && role === 'trader' && (
         <Card className="p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Simulate Transfer</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">Simulate Transfer</h3>
+            <select
+              value={role}
+              onChange={(e) => {
+                setRole(e.target.value as typeof role);
+                setSimulationResult(null);
+              }}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1"
+              disabled={isValidating || serviceLoading}
+            >
+              <option value="trader">Trader (Maker)</option>
+              <option value="checker">Checker</option>
+              <option value="agent">Agent</option>
+            </select>
+          </div>
 
           <div className="space-y-4">
             <div>
@@ -179,7 +292,7 @@ export default function TransferSimulator({
                   max="100"
                   value={units}
                   onChange={(e) => setUnits(Math.max(1, parseInt(e.target.value) || 1))}
-                  disabled={isValidating || isExecuting}
+                  disabled={isValidating || isProposing}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <div className="text-sm text-gray-600 py-2">
@@ -197,7 +310,7 @@ export default function TransferSimulator({
                 step="100000"
                 value={price}
                 onChange={(e) => setPrice(parseFloat(e.target.value) || unitValue)}
-                disabled={isValidating || isExecuting}
+                disabled={isValidating || isProposing}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -218,7 +331,7 @@ export default function TransferSimulator({
             <div className="space-y-2">
               <Button
                 onClick={handleValidate}
-                disabled={isValidating || isExecuting || !isReady || serviceLoading}
+                disabled={isValidating || !isReady || serviceLoading}
                 className="w-full"
                 variant="outline"
               >
@@ -238,17 +351,23 @@ export default function TransferSimulator({
               </Button>
 
               <Button
-                onClick={handleExecute}
-                disabled={isValidating || isExecuting || !isReady || serviceLoading}
+                onClick={handlePropose}
+                disabled={
+                  isValidating ||
+                  isProposing ||
+                  !isReady ||
+                  serviceLoading ||
+                  !canExecute
+                }
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                {isExecuting ? (
+                {isProposing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {mode === 'real' ? 'Submitting transaction...' : 'Executing Transfer...'}
+                    Proposing Trade...
                   </>
                 ) : (
-                  'Execute Transfer'
+                  'Propose Trade'
                 )}
               </Button>
             </div>
@@ -256,6 +375,103 @@ export default function TransferSimulator({
               <p className="text-xs text-gray-500 text-center mt-2">
                 Gas fees are sponsored. No wallet popup required.
               </p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {!result && role !== 'trader' && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">
+              {role === 'checker' ? 'Checker Inbox' : 'Agent Inbox'}
+            </h3>
+            <select
+              value={role}
+              onChange={(e) => {
+                setRole(e.target.value as typeof role);
+                setSimulationResult(null);
+                setInbox([]);
+              }}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1"
+              disabled={isLoadingInbox || isApproving || isRejecting || isSettling}
+            >
+              <option value="trader">Trader (Maker)</option>
+              <option value="checker">Checker</option>
+              <option value="agent">Agent</option>
+            </select>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              onClick={fetchInbox}
+              disabled={isLoadingInbox}
+              className="w-full"
+              variant="outline"
+            >
+              {isLoadingInbox ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Refresh Inbox'
+              )}
+            </Button>
+
+            {inbox.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                {role === 'checker'
+                  ? 'No proposed trades waiting for approval.'
+                  : 'No approved trades waiting for execution.'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {inbox.slice(0, 5).map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {t.units} units • {t.status.toUpperCase()}
+                      </p>
+                      <p className="text-xs text-gray-500 font-mono truncate">
+                        {t.id}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {role === 'checker' ? (
+                        <>
+                          <Button
+                            onClick={() => handleApprove(t.id)}
+                            disabled={isApproving || isRejecting || isLoadingInbox}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => handleReject(t.id)}
+                            disabled={isApproving || isRejecting || isLoadingInbox}
+                            variant="outline"
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          onClick={() => handleSettle(t.id)}
+                          disabled={isSettling || isLoadingInbox}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Execute
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </Card>
@@ -365,17 +581,17 @@ export default function TransferSimulator({
 
               {!result.trade && validation.canTransfer && (
                 <Button
-                  onClick={handleExecute}
-                  disabled={isExecuting || serviceLoading || !canExecute}
+                  onClick={handlePropose}
+                  disabled={isProposing || serviceLoading || !canExecute}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
-                  {isExecuting ? (
+                  {isProposing ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {mode === 'real' ? 'Submitting transaction...' : 'Executing Transfer...'}
+                      Proposing Trade...
                     </>
                   ) : (
-                    'Execute Transfer'
+                    'Propose Trade'
                   )}
                 </Button>
               )}

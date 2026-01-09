@@ -35,11 +35,35 @@ function normalizeTradeInput(input: unknown): Trade {
   };
 }
 
-// GET /api/trades - Get all trades
-export async function GET() {
+// GET /api/trades - Get trades (optionally filtered)
+export async function GET(req: NextRequest) {
   try {
-    logger.api.api('GET', '/api/trades');
-    const trades = await getTrades();
+    const { searchParams } = new URL(req.url);
+    const rawStatus = searchParams.get('status');
+    const allowedStatuses: Trade['status'][] = [
+      'pending',
+      'validating',
+      'proposed',
+      'approved',
+      'executed',
+      'settled',
+      'rejected',
+      'expired',
+    ];
+    const status = rawStatus && allowedStatuses.includes(rawStatus as Trade['status'])
+      ? (rawStatus as Trade['status'])
+      : null;
+
+    if (rawStatus && !status) {
+      return NextResponse.json(
+        { error: 'Invalid status filter' },
+        { status: 400 }
+      );
+    }
+
+    logger.api.api('GET', '/api/trades', { status: status ?? undefined });
+
+    const trades = await getTrades({ status: status ?? undefined });
     logger.api.debug('Trades fetched', { count: trades.length });
     return NextResponse.json(trades);
   } catch (error) {

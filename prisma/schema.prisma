@@ -309,6 +309,7 @@ model Trade {
   totalValue     BigInt // USD cents
   status         TradeStatus
   validation     Json? // TransferValidation JSON
+  workflow       Json? // Maker/Checker/Agent workflow + audit metadata
   createdAt      DateTime    @default(now())
   settledAt      DateTime?
   txHash         String?
@@ -323,10 +324,12 @@ model Trade {
 enum TradeStatus {
   pending
   validating
+  proposed
   approved
   executed
   settled
   rejected
+  expired
 }
 
 // ============ Trusted Issuer Model (ERC-3643) ============
