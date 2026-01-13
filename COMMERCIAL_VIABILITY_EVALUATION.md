@@ -37,6 +37,8 @@ The Loan Market Association (LMA) has set ambitious targets to modernize these p
 
 This platform delivers an end-to-end digital pipeline that transforms traditional loan documents into tradeable digital assets:
 
+![End-to-end digitization and tokenization pipeline](diagram1.png)
+
 1. **Intelligent Document Processing** — Loan agreements are parsed using AI to extract terms, covenants, lender positions, and ESG commitments automatically, eliminating manual data entry.
 
 2. **Standardized Digitization** — Parsed data is structured according to the NEL Protocol (Nammu21 has partnered with the LMA), creating Digital Credit Instruments that serve as a single source of truth for all participants.
@@ -220,6 +222,8 @@ The most significant risk reduction comes from atomic settlement—the guarantee
 
 In addition to technical settlement guarantees, the platform now demonstrates institutional operating controls that mirror real-world loan trading governance:
 
+![Maker/Checker/Agent trade workflow](diagram2.png)
+
 - **Maker/Checker/Agent Workflow** — A trade is proposed by a trader (maker), approved/rejected by an independent checker, and executed by an agent
 - **Revalidation on Approval/Execution** — Eligibility checks are re-run server-side at each stage to reduce stale approvals and race conditions
 - **Tamper-Evident Audit Metadata** — Each workflow transition records actor identity (demo wallet), timestamp, and state change for auditability
@@ -349,6 +353,8 @@ The market currently lacks a comprehensive solution:
 | Fintech Point Solutions | Modern UX | Lack integration, standards |
 
 ### Go-to-Market Path
+
+![Go-to-market phases and rollout path](diagram3.png)
 
 **Phase 1: Deployable MVP (Current)**
 - Operable end-to-end application (UI + APIs + database + smart contracts)
