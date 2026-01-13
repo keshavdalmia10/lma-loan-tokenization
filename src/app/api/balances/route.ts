@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/db/prisma';
+import { prisma, ensureConnection } from '@/lib/db/prisma';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 // GET /api/balances?tokenAddress=0x...
 export async function GET(req: NextRequest) {
   try {
+    await ensureConnection();
+
     const { searchParams } = new URL(req.url);
     const tokenAddress = searchParams.get('tokenAddress');
 

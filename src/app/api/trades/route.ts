@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTrades, addTrade } from '@/lib/store/loans';
 import type { Trade } from '@/lib/types/loan';
 import { logger } from '@/lib/utils/logger';
+import { ensureConnection } from '@/lib/db/prisma';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 function toDate(value: unknown): Date | undefined {
   if (value == null) return undefined;
@@ -38,6 +42,8 @@ function normalizeTradeInput(input: unknown): Trade {
 // GET /api/trades - Get trades (optionally filtered)
 export async function GET(req: NextRequest) {
   try {
+    await ensureConnection();
+
     const { searchParams } = new URL(req.url);
     const rawStatus = searchParams.get('status');
     const allowedStatuses: Trade['status'][] = [
@@ -78,6 +84,8 @@ export async function GET(req: NextRequest) {
 // POST /api/trades - Record a new trade
 export async function POST(request: NextRequest) {
   try {
+    await ensureConnection();
+
     const rawBody = await request.json();
     const body = normalizeTradeInput(rawBody);
 

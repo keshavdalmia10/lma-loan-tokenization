@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllLoans, addLoan, getPortfolioSummary } from '@/lib/store/loans';
 import type { DigitalCreditInstrument } from '@/lib/types/loan';
 import { logger } from '@/lib/utils/logger';
+import { ensureConnection } from '@/lib/db/prisma';
+
+// Increase serverless function timeout for database operations
+export const maxDuration = 30;
+
+// Force dynamic rendering to avoid caching issues
+export const dynamic = 'force-dynamic';
 
 // GET /api/loans - Get all loans
 export async function GET(request: NextRequest) {
   try {
+    // Ensure database connection is ready (helps with cold starts)
+    await ensureConnection();
+
     const { searchParams } = new URL(request.url);
     const summary = searchParams.get('summary');
 
@@ -32,6 +42,8 @@ export async function GET(request: NextRequest) {
 // POST /api/loans - Create a new loan
 export async function POST(request: NextRequest) {
   try {
+    await ensureConnection();
+
     const body = await request.json() as DigitalCreditInstrument;
 
     logger.api.api('POST', '/api/loans', { nelId: body.nelId, borrower: body.terms?.borrowerName });
